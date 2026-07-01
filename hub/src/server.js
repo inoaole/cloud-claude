@@ -17,6 +17,14 @@ import {
 import { loadDevices, readTailnetStatus, probeAll } from './devices.js';
 import { issueWsToken, consumeWsToken, sweepTokens, buildCommand, originAllowed } from './pty.js';
 import { buildShellCommand, wrapCommand, matchSentinel, isValidRunId, SHELL_INIT } from './shell.js';
+import {
+  createSession as createAgentSession, listSessions as listAgentSessions,
+  getSession as getAgentSession, removeSession as removeAgentSession,
+} from './sessions.js';
+import { assertCwd } from './agent.js';
+
+// Live agent children keyed by session id (populated by the /agent WS bridge in T3).
+const agentChildren = new Map();
 
 const app = express();
 app.disable('x-powered-by');
@@ -96,6 +104,34 @@ app.get('/devices', requireAuth, async (_req, res) => {
     audit('devices_error', { msg: String(err?.message || err) });
     res.status(500).json({ error: 'devices_failed' });
   }
+});
+
+// ── Agent sessions (Device plane, v0.6) ───────────────────────────────────────
+app.get('/sessions', requireAuth, (req, res) => {
+  res.json({ sessions: listAgentSessions(req.query.device) });
+});
+
+app.post('/sessions', requireAuth, async (req, res) => {
+  const { device: deviceId, cwd, title } = req.body || {};
+  const devices = await loadDevices(config.devicesFile);
+  const device = devices.find((d) => d.id === deviceId && d.enabled !== false);
+  if (!device) return res.status(404).json({ error: 'unknown_device' });
+  if (cwd != null) {
+    try { assertCwd(cwd); } catch { return res.status(400).json({ error: 'bad_cwd' }); }
+  }
+  const session = createAgentSession({ deviceId, cwd, title });
+  audit('session_create', { id: session.id, device: deviceId });
+  res.status(201).json({ session });
+});
+
+app.delete('/sessions/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  if (!getAgentSession(id)) return res.status(404).json({ error: 'unknown_session' });
+  const child = agentChildren.get(id);
+  if (child) { try { process.kill(-child.pid, 'SIGTERM'); } catch { try { child.kill('SIGTERM'); } catch { /* gone */ } } agentChildren.delete(id); }
+  removeAgentSession(id);
+  audit('session_kill', { id });
+  res.status(204).end();
 });
 
 // ── Terminal relay (Device plane) ─────────────────────────────────────────────
