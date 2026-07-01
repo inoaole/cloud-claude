@@ -20,6 +20,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   // Never cache API/dynamic calls (healthz now; ingest/rollup/pty later).
   if (url.pathname.startsWith('/healthz') || url.pathname.startsWith('/api') || url.pathname === '/pty') return;
-  // Cache-first for the static shell, network fallback.
+  // Navigations (the HTML shell): network-first so a redeploy shows immediately;
+  // fall back to the cached shell when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match('/index.html')));
+    return;
+  }
+  // Static assets: cache-first, network fallback.
   event.respondWith(caches.match(request).then((hit) => hit || fetch(request)));
 });

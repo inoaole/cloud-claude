@@ -21,10 +21,10 @@
 
 ### Sprint 0 — 허브 스캐폴드 + HTTPS + PWA 셸
 - [x] `hub/`(단일 Node: express, /healthz, PWA 정적 서빙, SPA fallback) + `shared/`(schema 스텁) + `pwa/` 스캐폴드 — 로컬 검증 통과
-- [ ] `tailscale serve`로 **tailnet-only HTTPS** 노출 (Funnel 금지). 폰에서 https 접속 확인 — `scripts/serve-https.sh` 준비됨; 허브 배포 + 폰 확인은 남음
-- [x] PWA manifest + service worker (secure context, 셸 캐시) + app.js 등록
+- [x] `tailscale serve`로 **tailnet-only HTTPS** 노출 (Funnel 금지) — 허브 배포됨, `https://cloud-claude-hub.tail978fc3.ts.net/` 라이브, 폰 접속 확인
+- [x] PWA manifest + service worker (secure context, HTML=network-first/자산=cache-first) + app.js 등록
 - [x] `.env.example`(HUB_PORT·TZ·SESSION_SECRET·LOG_LEVEL·DEVICES_FILE) + `devices.example.json`(4대 allowlist, 실 tailnet 반영)
-- **Exit:** 폰 홈화면 앱에서 빈 PWA 셸이 HTTPS로 뜬다. — 코드/로컬 ✅, **허브 배포+폰 설치 검증 남음**.
+- **Exit:** 폰 홈화면 앱에서 빈 PWA 셸이 HTTPS로 뜬다. — **달성 ✅** (폰 홈화면 설치 확인).
 
 ### Sprint 1 — PIN 인증 (하드닝) + 앱 셸/탭바
 - [ ] `POST /auth` PIN → 세션 쿠키(HttpOnly·Secure·SameSite=Strict), crypto-random 세션ID, 만료, 로그아웃

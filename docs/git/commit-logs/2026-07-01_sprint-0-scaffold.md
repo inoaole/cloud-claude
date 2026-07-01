@@ -8,4 +8,11 @@
   and `devices.example.json` (4-device allowlist reflecting the real tailnet). `scripts/serve-https.sh`
   fronts the hub with tailnet-only `tailscale serve`. Verified locally: healthz + shell + manifest +
   sw + SPA fallback all serve.
-  Remaining for Sprint 0 Exit: deploy to the hub + `tailscale serve` + verify home-screen install on the phone.
+- `fix(sprint-0): code-review — SW network-first for HTML, version from package.json, sudo in serve script`
+  Review (project code-review skill): SW cache-first on the HTML shell would serve a stale UI after
+  deploys → navigations now network-first, static assets cache-first. `/healthz` version now reads
+  `hub/package.json` (single source, no hardcode). `scripts/serve-https.sh` uses `sudo tailscale serve`
+  (needs root on the hub). Verified locally.
+
+Sprint 0 Exit MET: deployed to the hub, `tailscale serve` live at
+https://cloud-claude-hub.tail978fc3.ts.net/, PWA shell installs on the phone home screen over HTTPS.

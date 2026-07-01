@@ -10,7 +10,7 @@ app.disable('x-powered-by');
 
 // Health check (used by deploy/canary later).
 app.get('/healthz', (_req, res) => {
-  res.json({ ok: true, service: 'cloud-claude-hub', version: '0.1.0' });
+  res.json({ ok: true, service: 'cloud-claude-hub', version: config.version });
 });
 
 // Static PWA shell (served over HTTPS by `tailscale serve` in front of this port).
