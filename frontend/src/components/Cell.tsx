@@ -5,6 +5,8 @@ import styles from './Cell.module.css';
 interface CellProps {
   title: ReactNode;
   subtitle?: ReactNode;
+  /** Leading slot before the text (e.g. a status dot or icon). */
+  leading?: ReactNode;
   /** Trailing value shown before the chevron (e.g. a status). */
   value?: ReactNode;
   /** Show the disclosure chevron (default true when onClick given). */
@@ -14,7 +16,7 @@ interface CellProps {
 
 /** iOS HIG grouped-list row. One component owns the trailing-edge chevron so
     disclosure is consistent everywhere (design-review). Render inside <Group>. */
-export function Cell({ title, subtitle, value, disclosure, onClick }: CellProps) {
+export function Cell({ title, subtitle, leading, value, disclosure, onClick }: CellProps) {
   const showChevron = disclosure ?? Boolean(onClick);
   const interactive = Boolean(onClick);
   return (
@@ -25,6 +27,7 @@ export function Cell({ title, subtitle, value, disclosure, onClick }: CellProps)
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick?.(); } : undefined}
     >
+      {leading != null && <div className={styles.leading}>{leading}</div>}
       <div className={styles.text}>
         <div className={styles.title}>{title}</div>
         {subtitle && <div className={styles.subtitle}>{subtitle}</div>}

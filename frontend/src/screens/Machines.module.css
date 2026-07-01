@@ -1,0 +1,44 @@
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+/* Monochrome + Action Blue only: online = filled accent, offline = hollow muted. */
+.online { background: var(--accent); box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.18); }
+.offline { border: 1.5px solid var(--t3); }
+.disabled { border: 1.5px dashed var(--t3); opacity: 0.6; }
+
+.disabledLabel { color: var(--t3); }
+
+.hint {
+  text-align: center;
+  color: var(--t4);
+  font-size: 14px;
+  padding: 48px 20px 12px;
+}
+
+.center { display: flex; flex-direction: column; align-items: center; }
+
+.retry,
+.recheck {
+  display: block;
+  margin: 8px auto 0;
+  padding: 10px 22px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 15px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.retry:active,
+.recheck:active { background: var(--raised); }
+
+.recheck {
+  margin-top: 22px;
+  background: transparent;
+  border-color: transparent;
+  font-size: 14px;
+}
