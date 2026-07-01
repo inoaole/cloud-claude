@@ -16,8 +16,12 @@ export function Unlock({ onAuthed }: { onAuthed: () => void }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [lockLeft, setLockLeft] = useState(0);
   const lockTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => { if (lockTimer.current) clearInterval(lockTimer.current); }, []);
+  useEffect(() => () => {
+    if (lockTimer.current) clearInterval(lockTimer.current);
+    if (successTimer.current) clearTimeout(successTimer.current);
+  }, []);
 
   const startLockout = useCallback((seconds: number) => {
     setPhase('locked');
@@ -41,7 +45,7 @@ export function Unlock({ onAuthed }: { onAuthed: () => void }) {
     switch (res.kind) {
       case 'ok':
         setPhase('success');
-        setTimeout(onAuthed, 220); // let the fade play before swapping to the app
+        successTimer.current = setTimeout(onAuthed, 220); // let the fade play before swapping to the app
         break;
       case 'locked':
         setPin('');
@@ -67,16 +71,15 @@ export function Unlock({ onAuthed }: { onAuthed: () => void }) {
       return;
     }
     if (k === 'go') {
-      setPin((p) => { if (p) void submit(p); return p; });
+      // Read pin directly (it's in deps) — never fire submit from inside a state
+      // updater, which StrictMode double-invokes.
+      if (pin) void submit(pin);
       return;
     }
-    // digit
-    setPin((p) => {
-      const next = phase === 'wrong' ? k : (p.length < MAX ? p + k : p);
-      return next;
-    });
+    // digit — a fresh code replaces the cleared input after a wrong attempt.
+    setPin((p) => (phase === 'wrong' ? k : p.length < MAX ? p + k : p));
     if (phase === 'wrong') setPhase('idle');
-  }, [phase, submit]);
+  }, [phase, pin, submit]);
 
   // Physical keyboard support (desktop / dev); phone uses the on-screen keypad.
   useEffect(() => {
