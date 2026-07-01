@@ -1,5 +1,7 @@
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPtyToken } from '../lib/api';
+import { Composer } from '../components/Composer';
+import { Chips } from '../components/Chips';
 import type { Conn } from './DeviceConsole';
 import styles from './CommandChat.module.css';
 
@@ -79,7 +81,6 @@ export function CommandChat({ id, label, onStatus }: { id: string; label: string
     });
   }, []);
 
-  const onSubmit = (e: FormEvent) => { e.preventDefault(); run(input); setInput(''); inputRef.current?.focus(); };
   const chips = [...recents, ...PRESETS.filter((p) => !recents.includes(p))];
 
   return (
@@ -108,25 +109,14 @@ export function CommandChat({ id, label, onStatus }: { id: string; label: string
         ))}
       </div>
 
-      <div className={styles.chips}>
-        {chips.map((c) => (
-          <button key={c} type="button" className={styles.chip}
-            onMouseDown={(e) => e.preventDefault()} onClick={() => run(c)}>{c}</button>
-        ))}
-      </div>
+      <Chips items={chips} onPick={run} mono />
 
-      <form className={styles.composer} onSubmit={onSubmit}>
-        <input
-          ref={inputRef}
-          className={styles.input}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={ready ? 'Type a command…' : 'Connecting…'}
-          autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false}
-          enterKeyHint="send" aria-label="Command"
-        />
-        <button type="submit" className={styles.send} disabled={!input.trim() || !ready}>Run</button>
-      </form>
+      <Composer
+        value={input} onChange={setInput}
+        onSubmit={() => { run(input); setInput(''); }}
+        ready={ready} placeholder={ready ? 'Type a command…' : 'Connecting…'}
+        ariaLabel="Command" sendLabel="Run" inputRef={inputRef}
+      />
     </div>
   );
 }

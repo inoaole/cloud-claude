@@ -49,6 +49,8 @@
 
 .toolBody { margin: 0; padding: 0 12px 10px; color: var(--t3); font: 400 12px var(--mono); white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; }
 
+.errorText { margin-top: 8px; color: var(--danger); font: 400 13px var(--mono); white-space: pre-wrap; word-break: break-word; }
+
 .turnFoot { display: flex; align-items: center; gap: 10px; margin-top: 10px; font: 400 12px var(--mono); }
 .running { color: var(--accent); }
 .ok { color: var(--t3); }

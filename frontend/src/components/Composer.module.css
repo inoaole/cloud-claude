@@ -1,0 +1,32 @@
+.composer {
+  display: flex;
+  gap: 8px;
+  padding: 8px var(--gutter) calc(var(--safe-bottom) + 8px);
+  border-top: 1px solid var(--hair);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--t1);
+  font: 400 16px var(--ui); /* 16px avoids iOS auto-zoom on focus */
+}
+.input::placeholder { color: var(--t3); }
+
+.send, .stop {
+  flex: none;
+  min-height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.send { background: var(--accent); color: #fff; }
+.send:disabled { background: var(--card); color: var(--t3); cursor: default; }
+.stop { background: var(--danger); color: #fff; }

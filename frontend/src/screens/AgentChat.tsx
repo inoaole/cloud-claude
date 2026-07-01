@@ -1,5 +1,7 @@
-import { type FormEvent, useCallback, useEffect, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { createAgentSession, getPtyToken } from '../lib/api';
+import { Composer } from '../components/Composer';
+import { Chips } from '../components/Chips';
 import type { Conn } from './DeviceConsole';
 import styles from './AgentChat.module.css';
 
@@ -13,7 +15,7 @@ type Block =
 interface Turn {
   id: string; prompt: string; blocks: Block[];
   status: 'running' | 'done' | 'stopped' | 'failed';
-  startedAt: number; endedAt?: number; ms?: number | null;
+  startedAt: number; endedAt?: number; ms?: number | null; errorText?: string;
 }
 
 type Action =
@@ -22,7 +24,7 @@ type Action =
   | { type: 'ASSISTANT'; text: string }
   | { type: 'TOOL_USE'; id: string; name: string; input: Record<string, unknown> }
   | { type: 'TOOL_RESULT'; id: string; ok: boolean; output: string }
-  | { type: 'CLOSE'; ok: boolean; ms: number | null; now: number }
+  | { type: 'CLOSE'; ok: boolean; ms: number | null; now: number; text?: string | null }
   | { type: 'STOP' }
   | { type: 'TOGGLE'; turnId: string; toolId: string };
 
@@ -62,7 +64,12 @@ function reducer(turns: Turn[], a: Action): Turn[] {
         blocks: t.blocks.map((b) => (b.kind === 'tool' && b.id === a.id ? { ...b, status: a.ok ? 'done' : 'failed', output: a.output } : b)),
       }));
     case 'CLOSE':
-      return upd((t) => ({ ...t, status: t.status === 'stopped' ? 'stopped' : (a.ok ? 'done' : 'failed'), ms: a.ms, endedAt: a.now, blocks: closeStreaming(t.blocks) }));
+      return upd((t) => ({
+        ...t,
+        status: t.status === 'stopped' ? 'stopped' : (a.ok ? 'done' : 'failed'),
+        ms: a.ms, endedAt: a.now, blocks: closeStreaming(t.blocks),
+        errorText: a.ok ? undefined : (a.text || 'The turn failed. If this device just started, claude may need re-authentication.'),
+      }));
     case 'STOP':
       return upd((t) => (t.status === 'running' ? { ...t, status: 'stopped' } : t));
     case 'TOGGLE':
@@ -116,7 +123,6 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
   const [busy, setBusy] = useState(false);
   const [ready, setReady] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const connectRef = useRef<() => void>(() => {});
 
@@ -142,7 +148,7 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
             case 'assistant': dispatch({ type: 'ASSISTANT', text: String(m.text ?? '') }); break;
             case 'tool_use': dispatch({ type: 'TOOL_USE', id: String(m.id), name: String(m.name), input: (m.input as Record<string, unknown>) ?? {} }); break;
             case 'tool_result': dispatch({ type: 'TOOL_RESULT', id: String(m.id), ok: Boolean(m.ok), output: String(m.output ?? '') }); break;
-            case 'result': dispatch({ type: 'CLOSE', ok: Boolean(m.ok), ms: (m.ms as number) ?? null, now: Date.now() }); setBusy(false); break;
+            case 'result': dispatch({ type: 'CLOSE', ok: Boolean(m.ok), ms: (m.ms as number) ?? null, text: m.ok ? null : String(m.text ?? ''), now: Date.now() }); setBusy(false); break;
             case 'exit': setBusy(false); break;
             case 'error': onStatus('error'); break;
             default: break;
@@ -170,7 +176,7 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
     ws.send(JSON.stringify({ type: 'user', text: t }));
   }, [busy]);
 
-  const onSubmit = (e: FormEvent) => { e.preventDefault(); send(input); setInput(''); inputRef.current?.focus(); };
+  const onSend = () => { send(input); setInput(''); };
   const stop = () => { wsRef.current?.send(JSON.stringify({ type: 'stop' })); dispatch({ type: 'STOP' }); setBusy(false); };
 
   return (
@@ -198,6 +204,7 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
                   </div>
                 ))}
             </div>
+            {t.errorText && <p className={styles.errorText}>{t.errorText}</p>}
             <footer className={styles.turnFoot}>
               {t.status === 'running' ? <span className={styles.running}>claude is working…</span> : (
                 <>
@@ -213,28 +220,13 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
         ))}
       </div>
 
-      {turns.length === 0 && ready && (
-        <div className={styles.chips}>
-          {STARTERS.map((c) => (
-            <button key={c} type="button" className={styles.chip} onMouseDown={(e) => e.preventDefault()} onClick={() => send(c)}>{c}</button>
-          ))}
-        </div>
-      )}
+      {turns.length === 0 && ready && <Chips items={STARTERS} onPick={send} />}
 
-      <form className={styles.composer} onSubmit={onSubmit}>
-        <input
-          ref={inputRef}
-          className={styles.input}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={ready ? 'Message claude…' : 'Connecting…'}
-          autoCapitalize="none" autoCorrect="off" autoComplete="off" spellCheck={false}
-          enterKeyHint="send" aria-label="Message"
-        />
-        {busy
-          ? <button type="button" className={styles.stop} onClick={stop}>Stop</button>
-          : <button type="submit" className={styles.send} disabled={!input.trim() || !ready}>Send</button>}
-      </form>
+      <Composer
+        value={input} onChange={setInput} onSubmit={onSend}
+        ready={ready} busy={busy} onStop={stop}
+        placeholder={ready ? 'Message claude…' : 'Connecting…'} ariaLabel="Message"
+      />
     </div>
   );
 }

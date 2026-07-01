@@ -55,6 +55,18 @@ describe('AgentChat', () => {
     expect(screen.getByText('~2.4s')).toBeInTheDocument();
   });
 
+  it('surfaces the error text on a failed turn (e.g. claude not authenticated)', async () => {
+    const user = userEvent.setup();
+    render(<AgentChat id="hub" label="hub" onStatus={() => {}} />);
+    await user.type(await screen.findByLabelText('Message'), 'hi');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+    await act(async () => {
+      lastWs!.emit({ type: 'result', ok: false, ms: 800, text: 'Failed to authenticate. API Error: 401' });
+    });
+    expect(screen.getByText('Failed')).toBeInTheDocument();
+    expect(screen.getByText(/Failed to authenticate/)).toBeInTheDocument();
+  });
+
   it('shows Stop while running and sends a stop message', async () => {
     const user = userEvent.setup();
     render(<AgentChat id="d" label="D" onStatus={() => {}} />);
