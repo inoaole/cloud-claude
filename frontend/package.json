@@ -1,7 +1,7 @@
 {
   "name": "cloud-claude-frontend",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "description": "cloud-claude PWA — React + TypeScript SPA served by the hub over Tailscale.",
   "scripts": {
