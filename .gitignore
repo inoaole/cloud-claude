@@ -5,7 +5,11 @@
 !package.json
 !package-lock.json
 !tsconfig.json
+!tsconfig.*.json
 !*.example.json
+
+# TS incremental build cache
+*.tsbuildinfo
 .env
 .env.*
 !.env.example
@@ -25,6 +29,11 @@ __pycache__/
 # Build
 node_modules/
 *.zip
+frontend/dist/
+frontend/dev-dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.vite/
 
 # Claude
 .claude/

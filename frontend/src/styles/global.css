@@ -1,0 +1,35 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+
+html {
+  /* 100dvh viewport math depends on this; keeps the shell locked to the visual viewport */
+  background: var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* The app owns scroll inside AppShell; the document itself never bounces. */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a { color: var(--link); }
+
+.mono { font-family: var(--mono); }
+.muted { color: var(--t4); font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

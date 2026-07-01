@@ -83,8 +83,12 @@ app.use(
   express.static(config.paths.pwaDir, {
     extensions: ['html'],
     setHeaders(res, filePath) {
+      // Content-hashed Vite assets are immutable; the SW + HTML shell must revalidate
+      // so a redeploy is picked up immediately.
       if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
         res.setHeader('Cache-Control', 'no-cache');
+      } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       }
     },
   })

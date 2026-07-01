@@ -1,0 +1,39 @@
+/* The whole-viewport grid. 100dvh (not 100vh) so iOS URL-bar changes don't clip it.
+   Three rows: header (auto) / content (fills, scrolls) / tab bar (auto). */
+.shell {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  /* Header clears the notch/status bar via safe-area-inset-top. */
+  padding: calc(var(--safe-top) + 14px) var(--gutter) 12px var(--gutter);
+}
+
+.title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--t1);
+}
+
+.chip {
+  font-size: 12px;
+  color: var(--t2);
+  white-space: nowrap;
+}
+
+/* The ONLY scroll container. Momentum scroll on iOS, no rubber-banding past ends. */
+.content {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 var(--gutter) 24px var(--gutter);
+}

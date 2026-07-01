@@ -1,0 +1,47 @@
+/* cloud-claude — Personal OS App Language (see DESIGN.md). Single source of design tokens.
+   Dark, SF, one Action Blue, honest quiet. Ported from pwa/styles.css :root + design-review. */
+:root {
+  /* Surfaces */
+  --bg: #000;
+  --card: #1c1c1e;
+  --raised: #2a2a2c;
+  --hair: rgba(255, 255, 255, 0.10);
+
+  /* Brand — the ONE accent. Chrome stays monochrome + this blue. */
+  --accent: #0066cc;
+  --link: #2997ff;
+  --danger: #ff6b6b;
+
+  /* Text ramp. --t3 for labels; --t4 is the slightly-lighter tertiary the
+     design-review added so 11–13px muted text clears ~4.5:1 on black. */
+  --t1: #ffffff;
+  --t2: #cccccc;
+  --t3: #7a7a7a;
+  --t4: #8a8a8a;
+
+  /* Type */
+  --ui: -apple-system, "SF Pro Text", system-ui, "Inter", sans-serif;
+  --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+
+  /* Metrics */
+  --tabbar-h: 66px;
+  --radius: 12px;
+  --gutter: 18px;
+
+  /* Safe-area shorthands (0px fallback off-device / in the browser) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Growth-only palette — used ONLY on the Growth screen, never in chrome.
+     Muted categorical project colors + a dark Action-Blue heat ramp. */
+  --growth-p1: #6b8caf;
+  --growth-p2: #7fae8c;
+  --growth-p3: #b39a6b;
+  --growth-p4: #a97fae;
+  --growth-p5: #ae7f8c;
+  --heat-0: #16181c;
+  --heat-1: #103049;
+  --heat-2: #0d4a7a;
+  --heat-3: #0066cc;
+  --heat-4: #2997ff;
+}

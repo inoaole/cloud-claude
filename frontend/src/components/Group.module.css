@@ -1,0 +1,17 @@
+.group { margin-top: 22px; }
+.group:first-child { margin-top: 8px; }
+
+.header {
+  font-size: 13px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--t4);
+  padding: 0 4px 8px;
+}
+
+.card {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--hair);
+}
