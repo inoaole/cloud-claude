@@ -43,6 +43,17 @@ test('buildCommand: Linux peer → tailscale ssh', () => {
   assert.deepEqual(c.args, ['ssh', 'ubuntu@box', '--', 'tmux', 'new', '-A', '-s', 'phone']);
 });
 
+test('buildCommand: rejects option-injection in device fields', () => {
+  assert.throws(
+    () => buildCommand({ id: 'x', connect: 'ssh', sshUser: '-oProxyCommand=calc', sshHost: '100.1.1.1' }, { hubKeyPath: '/k' }),
+    /unsafe/,
+  );
+  assert.throws(
+    () => buildCommand({ id: 'x', connect: 'ssh', sshUser: 'a', sshHost: 'host with space' }, { hubKeyPath: '/k' }),
+    /unsafe/,
+  );
+});
+
 test('originAllowed: same host only', () => {
   assert.equal(originAllowed('https://cloud-claude-hub.tail.ts.net', 'cloud-claude-hub.tail.ts.net'), true);
   assert.equal(originAllowed('https://evil.example', 'cloud-claude-hub.tail.ts.net'), false);

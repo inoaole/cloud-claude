@@ -33,6 +33,15 @@ export function sweepTokens(now = Date.now()) {
  * Mac (classic SSH over the tailnet with the hub key + explicit tmux path). Session name is
  * fixed (`opts.session`), so `attach || new` re-attaches the one phone session.
  */
+// Defense-in-depth: fields that get interpolated into an ssh/tailscale target must not be
+// mistakable for CLI options (leading '-') or contain whitespace/control chars. devices.json
+// is admin-controlled, but an SSH command builder should never trust its inputs blindly.
+function assertSafeArg(value, field) {
+  if (typeof value !== 'string' || value === '') throw new Error(`device ${field} missing`);
+  if (value.startsWith('-') || /[\s\x00-\x1f]/.test(value)) throw new Error(`device ${field} unsafe: ${value}`);
+  return value;
+}
+
 export function buildCommand(device, opts = {}) {
   const session = opts.session || 'phone';
   const tmuxArgs = ['new', '-A', '-s', session];
@@ -43,13 +52,16 @@ export function buildCommand(device, opts = {}) {
   }
 
   if (device.connect === 'tailscale-ssh') {
-    const target = `${device.sshUser || 'ubuntu'}@${device.tailnet || device.sshHost}`;
-    return { file: 'tailscale', args: ['ssh', target, '--', 'tmux', ...tmuxArgs] };
+    const user = assertSafeArg(device.sshUser || 'ubuntu', 'sshUser');
+    const host = assertSafeArg(device.tailnet || device.sshHost, 'tailnet');
+    return { file: 'tailscale', args: ['ssh', `${user}@${host}`, '--', 'tmux', ...tmuxArgs] };
   }
 
   // Mac / classic SSH over the tailnet. Non-login ssh lacks Homebrew's PATH, so tmux is
   // invoked by absolute path. Hub key only; strict-but-TOFU host key; no password prompts.
-  const target = `${device.sshUser}@${device.sshHost || device.tailnet}`;
+  const user = assertSafeArg(device.sshUser, 'sshUser');
+  const host = assertSafeArg(device.sshHost || device.tailnet, 'sshHost');
+  const target = `${user}@${host}`;
   const tmux = opts.macTmuxPath || '/opt/homebrew/bin/tmux';
   return {
     file: 'ssh',

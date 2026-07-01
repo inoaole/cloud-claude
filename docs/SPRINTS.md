@@ -53,11 +53,11 @@
 - **Exit:** Machines에서 4대 상태(●/○)가 정확히 보이고, 오프라인 사유가 구분된다. — **달성 ✅** (허브 실프로브 검증; 사유 구분은 유닛테스트 커버, 현재 enabled 2대 online).
 
 ### Sprint 3 — 터미널 릴레이 (핵심)
-- [ ] `WS /pty?device=` — Origin 검증 + PIN 세션에서 발급한 **단기 WS 토큰** 요구
-- [ ] `spawn(cmd,args)`(셸 금지) → `tailscale ssh <device>` → `tmux attach -t phone || tmux new -s phone`
-- [ ] node-pty ↔ WS 바이너리 브리지, xterm.js 콘솔, cols/rows resize → pty → tmux
-- [ ] device는 devices.json **allowlist**로만 (고정 세션명 `phone` → 인젝션 표면 없음)
-- **Exit:** 폰 → 허브 → tailscale ssh → tmux → 명령 실행 → 폰에 출력. (Critical Path)
+- [x] `WS /pty?device=` — Origin 검증 + PIN 세션서 발급한 **단기(30s)·단일사용 WS 토큰**(`POST /pty/token`) + `sessionValid` 재확인. bad-origin 403 / bad-token 401 / bad-device 404.
+- [x] `spawn(file,args)`(셸 금지) → hub=로컬 tmux / Mac=classic ssh(허브키+절대 tmux) / Linux=`tailscale ssh` → `tmux new -A -s phone`. `assertSafeArg`로 인자 인젝션 방어.
+- [x] node-pty ↔ WS 브리지(client→JSON stdin/resize·클램프, server→raw bytes), xterm.js 콘솔(FitAddon, resize), 풀스크린 라우트 `/machines/:id`.
+- [x] device는 devices.json **allowlist**로만(고정 세션명 `phone`). Machines online 행만 tap-to-open. 테스트 hub node:test 18 + Vitest 15.
+- **Exit:** 폰 → 허브 → ssh → tmux → 명령 실행 → 폰에 출력. (Critical Path) — **달성 ✅** (허브 실배포, 헤드리스 WS로 device=hub·macbook-pro 양쪽 echo 왕복 실증; 인터랙티브 폰 확인만 남음).
 
 ### Sprint 4 — 복원력 + 안전 + 자원
 - [ ] 재접속: `tmux attach` 자체 redraw(vim/htop 포함) + `capture-pane -S -N`(상한) 스크롤백

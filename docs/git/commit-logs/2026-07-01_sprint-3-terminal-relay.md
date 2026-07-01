@@ -34,3 +34,12 @@
   (local tmux) AND `device=macbook-pro` (hub → ssh → Mac → tmux) both ran `echo <marker>`
   and streamed the output back. node-pty + ws compiled on the hub; deployed, v0.4.0 live.
   Remaining: interactive iPhone confirmation (tap MacBook Pro → type in the terminal).
+
+- `fix(sprint-3): guard ssh arg-injection in buildCommand (code-review)`
+  code-review (security-focused, Approve): no bypass found — token consume is race-free
+  (sync get+delete), Origin + sessionValid + allowlist layered, spawn is shell-free, effect
+  cleanup handles StrictMode. Folded one defense-in-depth item: `assertSafeArg` rejects
+  device fields (sshUser/sshHost/tailnet) that start with `-` (ssh option-injection) or carry
+  whitespace/control chars, before they're interpolated into the ssh/tailscale target. +1
+  node:test (18 hub). Redeployed; both pipes (hub + macbook-pro) still stream. Concurrent-pty
+  caps / WS maxPayload / connect timeout / backpressure remain Sprint 4 (복원력+자원).
