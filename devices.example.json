@@ -1,0 +1,41 @@
+{
+  "_comment": "Copy to devices.json (gitignored) and fill in. Reflects the real tailnet (2026-07-01). Macs use classic SSH over the tailnet (App Store Tailscale can't run the Tailscale SSH server); Linux uses Tailscale SSH.",
+  "devices": [
+    {
+      "id": "macbook-pro",
+      "label": "MacBook Pro",
+      "os": "macos",
+      "tailnet": "jonghyun--macbookpro",
+      "sshHost": "100.66.78.59",
+      "sshUser": "a1234",
+      "connect": "ssh",
+      "enabled": true
+    },
+    {
+      "id": "hub",
+      "label": "Ubuntu hub",
+      "os": "linux",
+      "tailnet": "cloud-claude-hub",
+      "connect": "tailscale-ssh",
+      "role": "hub",
+      "enabled": true
+    },
+    {
+      "id": "mac-mini",
+      "label": "Mac mini",
+      "os": "macos",
+      "connect": "ssh",
+      "enabled": false,
+      "_note": "not on the tailnet yet"
+    },
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "os": "windows",
+      "tailnet": "desktop-de6a81o",
+      "connect": "ssh",
+      "enabled": false,
+      "_note": "Windows (no tmux) — out of scope for v1"
+    }
+  ]
+}

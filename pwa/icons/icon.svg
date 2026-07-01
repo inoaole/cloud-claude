@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="cloud-claude">
+  <rect width="512" height="512" rx="112" fill="#000000"/>
+  <circle cx="256" cy="256" r="112" fill="none" stroke="#0066cc" stroke-width="20"/>
+  <circle cx="256" cy="256" r="26" fill="#2997ff"/>
+</svg>
