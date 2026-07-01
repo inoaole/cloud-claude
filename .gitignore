@@ -1,0 +1,33 @@
+# Secrets
+*.key
+*.key.pub
+*.json
+!package.json
+!tsconfig.json
+!*.example.json
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Build
+node_modules/
+*.zip
+
+# Claude
+.claude/
+.gstack/
+
+# Legacy / unrelated-project files (kept on disk, never committed)
+legacy/
