@@ -32,6 +32,16 @@
 - [x] PWA: PIN 언락 화면(로고+dots+키패드, A/Journal) + `/auth/me`로 재방문 시 언락 스킵 + 락아웃 카운트다운
 - **Exit:** PIN 넣고 언락 → 탭바 있는 다크 셸. 틀린 PIN은 차단된다. — 코드/로컬 ✅, **허브 배포+HUB_PIN 설정+폰 확인 남음**.
 
+### v0.3 — React 프론트 이관 (인프라, 모듈 가로지름)
+> `pwa/`(수기 HTML/CSS/JS) → `frontend/`(Vite + React + TS SPA). 백엔드/인증 로직 불변. 계획: `~/.gstack/.../a1234-v0.3-react-migration-plan-20260701.md`.
+- [x] Vite+React+TS 스캐폴드 · Router v6 탭 라우팅 · CSS Modules + `tokens.css`(DESIGN 변수 단일소스)
+- [x] **AppShell 100dvh 그리드**(header/스크롤 콘텐츠/TabBar) — 탭바를 iOS home indicator 위로 → **iPhone 16 Pro safe-area 버그 수정**
+- [x] Unlock 커스텀 키패드(입력필드 없음) + 전체 비주얼 상태(idle/submitting/wrong shake/lockout/no-pin/success) · auth 상태머신(checking 스플래시) · `lib/api` 전역 401 게이트
+- [x] `vite-plugin-pwa`(SW navigateFallback denylist: /auth·/logout·/api·/pty·/healthz) + iOS 메타 패리티 · 5개 탭 honest-quiet 스텁
+- [x] design-review 이월분 선반영: 탭 구분 글리프 · Cell 후행엣지 디스클로저 · `--t4` 뮤트 대비 · Growth 팔레트/heat 토큰
+- [x] Vitest 12 + Playwright smoke 1 통과 · 빌드 클린 · hub `frontend/dist` 서빙(자산 immutable/셸 no-cache) · code-review 보강
+- **Exit:** 빌드 → 허브 원자적 배포 → **iPhone 16 Pro에서 탭바가 home indicator 위**(safe-area). — **달성 ✅** (허브 배포 v0.3.0 라이브 + 폰 확인 완료, `pwa/` 삭제).
+
 ---
 
 ## Module 1 — Device plane (Terminal 모드) — "밖에서 내 기계 붙기"

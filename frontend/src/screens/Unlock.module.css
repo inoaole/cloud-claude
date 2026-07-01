@@ -1,0 +1,91 @@
+.unlock {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--safe-top) + 12vh) 24px calc(var(--safe-bottom) + 24px);
+  background: var(--bg);
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+/* success: fade out before the app shell swaps in (no protected-UI flash). */
+.exit { opacity: 0; }
+
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--t1);
+}
+
+.sub {
+  font-size: 14px;
+  color: var(--t3);
+  margin-top: 8px;
+  min-height: 20px;
+  text-align: center;
+}
+.error { color: var(--danger); }
+
+.dots {
+  display: flex;
+  gap: 16px;
+  margin: 34px 0 40px;
+}
+.dots i {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--t2);
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.dots i.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.shake { animation: shake 320ms ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-9px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(3px); }
+}
+
+.keypad {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 78px);
+  gap: 18px;
+  justify-content: center;
+}
+.keypad[data-disabled='true'] { opacity: 0.55; }
+
+.key {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--t1);
+  border: 1px solid var(--hair);
+  font: 400 26px var(--ui);
+  cursor: pointer;
+}
+.key:active { background: var(--raised); }
+.key:disabled { cursor: default; }
+
+.alt {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  font-size: 22px;
+}
+.alt:disabled { color: var(--t3); }
+
+.pulse { animation: pulse 900ms ease-in-out infinite; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}

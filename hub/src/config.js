@@ -33,7 +33,12 @@ export const config = {
   sessionTtlMs: parseTtl(process.env.SESSION_TTL, 7 * 864e5),
   // Device registry (gitignored). Copy devices.example.json -> devices.json.
   devicesFile: process.env.DEVICES_FILE || path.join(repoRoot, 'devices.json'),
-  paths: { repoRoot, pwaDir: path.join(repoRoot, 'pwa') },
+  // The built React SPA (frontend/dist). Overridable so an atomic deploy can point at
+  // a swapped-in directory. Falls back to the in-repo build path.
+  paths: {
+    repoRoot,
+    pwaDir: process.env.PWA_DIR || path.join(repoRoot, 'frontend', 'dist'),
+  },
 };
 
 if (config.sessionSecret === 'dev-insecure-change-me') {

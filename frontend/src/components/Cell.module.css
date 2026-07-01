@@ -1,0 +1,40 @@
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 10px 14px;
+  background: var(--card);
+}
+.cell + .cell { border-top: 1px solid var(--hair); }
+
+.interactive { cursor: pointer; }
+.interactive:active { background: var(--raised); }
+
+.text { flex: 1; min-width: 0; }
+
+.title {
+  font-size: 16px;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--t4);
+}
+
+.value {
+  font-size: 15px;
+  color: var(--t3);
+  white-space: nowrap;
+}
+
+/* Trailing-edge chevron, vertically centered by the flex row. */
+.chevron {
+  flex: none;
+  color: var(--t3);
+}
