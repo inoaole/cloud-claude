@@ -68,25 +68,28 @@ test('assertCwd: allowedRoots enforced', () => {
   assert.throws(() => assertCwd('/etc/passwd', ['/Users/a1234/proj']), /outside allowed roots/);
 });
 
-test('buildAgentCommand: Mac ssh with hub key, -tt, setsid, exec claude in cwd', () => {
+test('buildAgentCommand: Mac ssh — no -tt, single quoted remote arg, exec claude in cwd', () => {
   const c = buildAgentCommand(
     { sshUser: 'a1234', sshHost: '100.66.78.59', connect: 'ssh' },
     '/Users/a1234/proj',
     { hubKeyPath: '/k', permissionMode: 'acceptEdits' },
   );
   assert.equal(c.file, 'ssh');
-  assert.ok(c.args.includes('-tt'), '-tt for SIGINT/Stop propagation');
-  const remote = c.args.at(-1);
-  assert.match(remote, /^cd '\/Users\/a1234\/proj' && exec claude /);
+  assert.ok(!c.args.includes('-tt'), 'no pty — keeps stream-json stdin clean');
+  assert.equal(c.args.at(-2), 'a1234@100.66.78.59');
+  const remote = c.args.at(-1); // ONE arg (ssh flattens argv): bash -lc '<inner>'
+  assert.match(remote, /^bash -lc '/);
+  assert.match(remote, /export PATH="\/opt\/homebrew\/bin/); // brew PATH so claude resolves
+  assert.match(remote, /cd '\\''\/Users\/a1234\/proj'\\'' && exec claude /);
   assert.match(remote, /--permission-mode acceptEdits/);
   assert.match(remote, /--input-format stream-json/);
-  assert.deepEqual(c.args.slice(-4), ['setsid', 'bash', '-lc', remote]); // setsid bash -lc <remote>
 });
 
-test('buildAgentCommand: hub role → local setsid, no ssh', () => {
+test('buildAgentCommand: hub role → local bash -lc, no ssh', () => {
   const c = buildAgentCommand({ role: 'hub' }, '/tmp/x', {});
-  assert.equal(c.file, 'setsid');
-  assert.deepEqual(c.args.slice(0, 2), ['bash', '-lc']);
+  assert.equal(c.file, 'bash');
+  assert.equal(c.args[0], '-lc');
+  assert.match(c.args[1], /export PATH=.*; cd '\/tmp\/x' && exec claude /);
 });
 
 test('buildAgentCommand: rejects unsafe cwd before building', () => {

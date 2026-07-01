@@ -26,34 +26,43 @@ export function assertCwd(cwd, allowedRoots) {
   return cwd;
 }
 
+/** POSIX single-quote a string so it survives a remote shell re-parse. */
+function sq(s) {
+  return `'${String(s).replace(/'/g, "'\\''")}'`;
+}
+
 /**
- * Build the spawn command to run claude on a device (NO shell string we construct — the remote
- * side runs `cd <cwd> && exec claude …` via the login shell; cwd is validated and the flags are
- * fixed constants, so there is no injection surface). `exec` + a device-side process group let
- * killing the ssh reap claude and its children.
+ * Build the spawn command to run claude on a device. The device runs `cd <cwd> && exec claude …`
+ * via a login shell (for PATH). Key correctness points:
+ *  - NO `-tt`: a pty would echo our stream-json stdin back into claude's stdout and corrupt the
+ *    event stream. We pipe stdin/stdout cleanly instead.
+ *  - Cleanup: closing the local ssh EOFs claude's stdin and `claude -p --input-format stream-json`
+ *    exits on EOF — so no orphan on the device (Stop = kill the ssh, D4 v0.6 = coarse brake).
+ *  - ssh flattens argv after the host, so the remote command is ONE shell-quoted string.
+ *  - cwd validated (assertCwd) + device fields via assertSafeArg → no injection.
  */
 export function buildAgentCommand(device, cwd, opts = {}) {
   const safeCwd = assertCwd(cwd, opts.allowedRoots);
   const mode = opts.permissionMode || 'acceptEdits';
-  const claude = ['claude', ...CLAUDE_FLAGS, '--permission-mode', mode];
-  const remote = `cd '${safeCwd}' && exec ${claude.join(' ')}`;
+  const claudeCmd = ['claude', ...CLAUDE_FLAGS, '--permission-mode', mode].join(' ');
+  // A non-login zsh user's brew PATH isn't on bash's login PATH, so `claude` isn't found —
+  // prepend the common bin dirs (same fix as the shell relay's SHELL_INIT).
+  const inner = `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; cd ${sq(safeCwd)} && exec ${claudeCmd}`;
 
   if (device.role === 'hub') {
-    // Local: run under setsid so the whole group dies together; bash -lc for PATH.
-    return { file: 'setsid', args: ['bash', '-lc', remote] };
+    return { file: 'bash', args: ['-lc', inner] }; // local; detached spawn gives its own group
   }
   if (device.connect === 'tailscale-ssh') {
     const user = assertSafeArg(device.sshUser || 'ubuntu', 'sshUser');
     const host = assertSafeArg(device.tailnet || device.sshHost, 'tailnet');
-    return { file: 'tailscale', args: ['ssh', `${user}@${host}`, '--', 'setsid', 'bash', '-lc', remote] };
+    return { file: 'tailscale', args: ['ssh', `${user}@${host}`, '--', 'bash', '-lc', inner] };
   }
   const user = assertSafeArg(device.sshUser, 'sshUser');
   const host = assertSafeArg(device.sshHost || device.tailnet, 'sshHost');
-  // -tt so the remote gets a controlling tty → Ctrl-C / SIGINT interrupts propagate (Stop, D4).
   return {
     file: 'ssh',
-    args: ['-i', opts.hubKeyPath, '-tt', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes',
-      '-o', 'ServerAliveInterval=20', `${user}@${host}`, 'setsid', 'bash', '-lc', remote],
+    args: ['-i', opts.hubKeyPath, '-o', 'StrictHostKeyChecking=accept-new', '-o', 'BatchMode=yes',
+      '-o', 'ServerAliveInterval=20', `${user}@${host}`, `bash -lc ${sq(inner)}`],
   };
 }
 

@@ -19,12 +19,12 @@ import { issueWsToken, consumeWsToken, sweepTokens, buildCommand, originAllowed 
 import { buildShellCommand, wrapCommand, matchSentinel, isValidRunId, SHELL_INIT } from './shell.js';
 import {
   createSession as createAgentSession, listSessions as listAgentSessions,
-  getSession as getAgentSession, removeSession as removeAgentSession,
+  getSession as getAgentSession, removeSession as removeAgentSession, setStatus as setAgentStatus,
 } from './sessions.js';
-import { assertCwd } from './agent.js';
+import { assertCwd, buildAgentCommand, mapEvent, wrapUserMessage } from './agent.js';
 
-// Live agent children keyed by session id (populated by the /agent WS bridge in T3).
-const agentChildren = new Map();
+// Live agent bridges keyed by session id: { child, ws, buf, lineBuf, graceTimer }.
+const agentBridges = new Map();
 
 const app = express();
 app.disable('x-powered-by');
@@ -127,8 +127,8 @@ app.post('/sessions', requireAuth, async (req, res) => {
 app.delete('/sessions/:id', requireAuth, (req, res) => {
   const { id } = req.params;
   if (!getAgentSession(id)) return res.status(404).json({ error: 'unknown_session' });
-  const child = agentChildren.get(id);
-  if (child) { try { process.kill(-child.pid, 'SIGTERM'); } catch { try { child.kill('SIGTERM'); } catch { /* gone */ } } agentChildren.delete(id); }
+  const bridge = agentBridges.get(id);
+  if (bridge) { killAgentChild(bridge); agentBridges.delete(id); }
   removeAgentSession(id);
   audit('session_kill', { id });
   res.status(204).end();
@@ -177,8 +177,8 @@ server.on('upgrade', async (req, socket, head) => {
   };
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    // /pty = live terminal (Terminal mode); /run = command-block shell (Chat mode).
-    if (url.pathname !== '/pty' && url.pathname !== '/run') {
+    // /pty = live terminal · /run = shell command blocks · /agent = claude agent (needs a session).
+    if (!['/pty', '/run', '/agent'].includes(url.pathname)) {
       return reject('404 Not Found', 'ws_bad_path', { path: url.pathname });
     }
     if (!originAllowed(req.headers.origin, req.headers.host)) {
@@ -192,6 +192,11 @@ server.on('upgrade', async (req, socket, head) => {
     const device = devices.find((d) => d.id === deviceId && d.enabled !== false);
     if (!device) return reject('404 Not Found', 'ws_bad_device', { device: deviceId });
 
+    if (url.pathname === '/agent') {
+      const session = getAgentSession(url.searchParams.get('session'));
+      if (!session || session.deviceId !== deviceId) return reject('404 Not Found', 'ws_bad_session');
+      return wss.handleUpgrade(req, socket, head, (ws) => bridgeAgent(ws, device, session));
+    }
     const bridge = url.pathname === '/run' ? bridgeShell : bridgePty;
     wss.handleUpgrade(req, socket, head, (ws) => bridge(ws, device));
   } catch (err) {
@@ -287,6 +292,102 @@ function bridgeShell(ws, device) {
     }
   });
   ws.on('close', () => { try { child.kill(); } catch { /* gone */ } audit('run_close', { device: device.id }); });
+}
+
+// ── Agent bridge: phone ⟷ hub ⟷ ssh ⟷ `claude -p` stream-json ─────────────────
+// Client→server: {type:'user',text} · {type:'stop'}. Server→client: mapped claude events
+// ({assistant,tool_use,tool_result,result,status,...}). Keep-alive: on WS close the child lives
+// ~45s (output buffered) so a reconnect re-attaches the same stream (T-B). Kill = SIGTERM the
+// process group (setsid on Linux, ssh -tt SIGHUP on Mac). Backpressure = bounded disconnect buffer.
+const AGENT_GRACE_MS = 45_000;
+
+function killAgentChild(b) {
+  if (!b?.child) return;
+  try { process.kill(-b.child.pid, 'SIGTERM'); } catch { try { b.child.kill('SIGTERM'); } catch { /* gone */ } }
+}
+
+function deliverAgent(b, msg) {
+  if (b.ws && b.ws.readyState === b.ws.OPEN) b.ws.send(msg);
+  else { b.buf.push(msg); if (b.buf.length > 500) b.buf.shift(); } // bounded (codex #8)
+}
+
+function onAgentStdout(b, chunk) {
+  b.lineBuf += chunk.toString('utf8');
+  let nl;
+  while ((nl = b.lineBuf.indexOf('\n')) >= 0) {
+    const line = b.lineBuf.slice(0, nl);
+    b.lineBuf = b.lineBuf.slice(nl + 1);
+    if (!line.trim()) continue;
+    let evt;
+    try { evt = JSON.parse(line); } catch { continue; } // malformed line → skip (codex #17)
+    for (const wsEvt of mapEvent(evt)) deliverAgent(b, JSON.stringify(wsEvt));
+  }
+  if (b.lineBuf.length > 1_000_000) b.lineBuf = b.lineBuf.slice(-4096); // huge unterminated line cap
+}
+
+function wireAgentWs(ws, b, session) {
+  ws.on('message', (raw) => {
+    let m; try { m = JSON.parse(raw.toString()); } catch { return; }
+    if (m.type === 'user' && typeof m.text === 'string') {
+      try { b.child.stdin.write(wrapUserMessage(m.text)); } catch { /* child gone */ }
+    } else if (m.type === 'stop') {
+      try { process.kill(-b.child.pid, 'SIGINT'); } catch { try { b.child.kill('SIGINT'); } catch { /* gone */ } }
+      audit('agent_stop', { id: session.id });
+    }
+  });
+  ws.on('close', () => {
+    if (b.ws !== ws) return; // superseded by a reattach — ignore the old socket
+    b.ws = null;
+    b.graceTimer = setTimeout(() => {
+      killAgentChild(b); agentBridges.delete(session.id); setAgentStatus(session.id, 'exited');
+      audit('agent_grace_kill', { id: session.id });
+    }, AGENT_GRACE_MS);
+    audit('agent_detach', { id: session.id });
+  });
+}
+
+function bridgeAgent(ws, device, session) {
+  const existing = agentBridges.get(session.id);
+  if (existing && existing.child && existing.child.exitCode == null) {
+    // Reattach (keep-alive): cancel the grace kill, swap the socket, flush the buffer.
+    clearTimeout(existing.graceTimer); existing.graceTimer = null;
+    existing.ws = ws;
+    ws.send(JSON.stringify({ type: 'status', state: 'reattached' }));
+    for (const m of existing.buf) ws.send(m);
+    existing.buf = [];
+    audit('agent_reattach', { id: session.id });
+    wireAgentWs(ws, existing, session);
+    return;
+  }
+  let child;
+  try {
+    const { file, args } = buildAgentCommand(device, session.cwd || process.env.HOME, {
+      hubKeyPath: config.hubKeyPath, permissionMode: 'acceptEdits',
+    });
+    child = spawn(file, args, { env: process.env, detached: true }); // own process group for group-kill
+  } catch (err) {
+    audit('agent_spawn_error', { id: session.id, msg: String(err?.message || err) });
+    setAgentStatus(session.id, 'error');
+    try { ws.send(JSON.stringify({ type: 'error', reason: 'spawn' })); } catch { /* noop */ }
+    ws.close(1011, 'spawn failed');
+    return;
+  }
+  const b = { child, ws, buf: [], lineBuf: '', graceTimer: null };
+  agentBridges.set(session.id, b);
+  setAgentStatus(session.id, 'running');
+  audit('agent_open', { id: session.id, device: device.id });
+
+  child.stdout.on('data', (c) => onAgentStdout(b, c));
+  child.stderr.on('data', (c) => audit('agent_stderr', { id: session.id, msg: c.toString('utf8').slice(0, 200) }));
+  child.on('exit', (code) => {
+    setAgentStatus(session.id, 'exited');
+    if (b.ws?.readyState === b.ws.OPEN) b.ws.send(JSON.stringify({ type: 'exit', code }));
+    if (b.graceTimer) clearTimeout(b.graceTimer);
+    agentBridges.delete(session.id);
+    audit('agent_exit', { id: session.id, code });
+  });
+
+  wireAgentWs(ws, b, session);
 }
 
 server.listen(config.port, () => {
