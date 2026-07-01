@@ -9,7 +9,7 @@ import { Today } from './screens/Today';
 import { Timeline } from './screens/Timeline';
 import { Growth } from './screens/Growth';
 import { Machines } from './screens/Machines';
-import { Terminal } from './screens/Terminal';
+import { DeviceConsole } from './screens/DeviceConsole';
 import { Settings } from './screens/Settings';
 
 export function App() {
@@ -52,8 +52,8 @@ export function App() {
       {status === 'unauthed' && <Unlock onAuthed={ctx.onAuthed} />}
       {status === 'authed' && (
         <Routes>
-          {/* Terminal is full-screen (no tab bar) for maximum console height. */}
-          <Route path="/machines/:id" element={<Terminal />} />
+          {/* Device console (Chat/Terminal) is full-screen — no tab bar. */}
+          <Route path="/machines/:id" element={<DeviceConsole />} />
           <Route
             path="*"
             element={

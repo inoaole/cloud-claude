@@ -6,6 +6,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import http from 'node:http';
+import { spawn } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import pty from 'node-pty';
 import { config } from './config.js';
@@ -15,6 +16,7 @@ import {
 } from './auth.js';
 import { loadDevices, readTailnetStatus, probeAll } from './devices.js';
 import { issueWsToken, consumeWsToken, sweepTokens, buildCommand, originAllowed } from './pty.js';
+import { buildShellCommand, wrapCommand, matchSentinel, isValidRunId, SHELL_INIT } from './shell.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -139,19 +141,23 @@ server.on('upgrade', async (req, socket, head) => {
   };
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    if (url.pathname !== '/pty') return reject('404 Not Found', 'pty_bad_path', { path: url.pathname });
+    // /pty = live terminal (Terminal mode); /run = command-block shell (Chat mode).
+    if (url.pathname !== '/pty' && url.pathname !== '/run') {
+      return reject('404 Not Found', 'ws_bad_path', { path: url.pathname });
+    }
     if (!originAllowed(req.headers.origin, req.headers.host)) {
-      return reject('403 Forbidden', 'pty_bad_origin', { origin: req.headers.origin || null });
+      return reject('403 Forbidden', 'ws_bad_origin', { origin: req.headers.origin || null });
     }
     const sid = consumeWsToken(url.searchParams.get('token'));
-    if (!sid || !sessionValid(sid)) return reject('401 Unauthorized', 'pty_bad_token');
+    if (!sid || !sessionValid(sid)) return reject('401 Unauthorized', 'ws_bad_token');
 
     const deviceId = url.searchParams.get('device');
     const devices = await loadDevices(config.devicesFile);
     const device = devices.find((d) => d.id === deviceId && d.enabled !== false);
-    if (!device) return reject('404 Not Found', 'pty_bad_device', { device: deviceId });
+    if (!device) return reject('404 Not Found', 'ws_bad_device', { device: deviceId });
 
-    wss.handleUpgrade(req, socket, head, (ws) => bridgePty(ws, device));
+    const bridge = url.pathname === '/run' ? bridgeShell : bridgePty;
+    wss.handleUpgrade(req, socket, head, (ws) => bridge(ws, device));
   } catch (err) {
     reject('500 Internal Server Error', 'pty_upgrade_error', { msg: String(err?.message || err) });
   }
@@ -197,6 +203,54 @@ function bridgePty(ws, device) {
     try { term.kill(); } catch { /* already gone */ }
     audit('pty_close', { device: device.id, seconds: Math.round((Date.now() - openedAt) / 1000) });
   });
+}
+
+// Bridge a WS to a persistent login shell (Chat mode). Client→server = {type:'run', id, cmd};
+// server→client = {type:'out', id, data} chunks then {type:'done', id, exit}. Output is split
+// on exit sentinels so each command becomes one block. (Sprint 4: caps, stop/interrupt.)
+function bridgeShell(ws, device) {
+  let child;
+  try {
+    const { file, args } = buildShellCommand(device, { hubKeyPath: config.hubKeyPath });
+    child = spawn(file, args, { env: process.env });
+  } catch (err) {
+    audit('run_spawn_error', { device: device.id, msg: String(err?.message || err) });
+    ws.close(1011, 'spawn failed');
+    return;
+  }
+  audit('run_open', { device: device.id });
+  child.stdin.write(SHELL_INIT);
+
+  let buf = '';
+  let curId = null;
+  const pump = (chunk) => {
+    buf += chunk.toString('utf8');
+    let nl;
+    while ((nl = buf.indexOf('\n')) >= 0) {
+      const line = buf.slice(0, nl);
+      buf = buf.slice(nl + 1);
+      const sent = matchSentinel(line);
+      if (sent) {
+        if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: 'done', id: sent.id, exit: sent.exit }));
+        curId = null;
+      } else if (curId && ws.readyState === ws.OPEN) {
+        ws.send(JSON.stringify({ type: 'out', id: curId, data: `${line}\n` }));
+      }
+    }
+  };
+  child.stdout.on('data', pump);
+  child.stderr.on('data', (c) => audit('run_stderr', { device: device.id, msg: c.toString('utf8').slice(0, 200) }));
+  child.on('exit', () => { if (ws.readyState === ws.OPEN) ws.close(1000, 'shell ended'); });
+
+  ws.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (msg.type === 'run' && typeof msg.cmd === 'string' && isValidRunId(msg.id)) {
+      curId = msg.id;
+      child.stdin.write(wrapCommand(msg.id, msg.cmd));
+    }
+  });
+  ws.on('close', () => { try { child.kill(); } catch { /* gone */ } audit('run_close', { device: device.id }); });
 }
 
 server.listen(config.port, () => {
