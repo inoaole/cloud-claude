@@ -1,0 +1,57 @@
+/* cloud-claude — Personal OS App Language (see DESIGN.md). Dark, honest quiet. */
+:root {
+  --bg: #000;
+  --card: #1c1c1e;
+  --raised: #2a2a2c;
+  --accent: #0066cc;
+  --link: #2997ff;
+  --t1: #ffffff;
+  --t2: #cccccc;
+  --t3: #7a7a7a;
+  --hair: rgba(255, 255, 255, 0.10);
+  --ui: -apple-system, "SF Pro Text", system-ui, "Inter", sans-serif;
+  --mono: "SF Mono", ui-monospace, "JetBrains Mono", Menlo, monospace;
+  --tabbar-h: 66px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--ui);
+  -webkit-font-smoothing: antialiased;
+}
+#app {
+  min-height: 100%;
+  padding: 0 18px calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px)) 18px;
+}
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 2px 12px 2px;
+}
+.large-title { font-size: 34px; font-weight: 700; letter-spacing: -0.4px; }
+.device-chip { font-family: var(--mono); font-size: 12px; color: var(--t2); }
+
+.empty { text-align: center; color: var(--t3); padding: 64px 20px; }
+.empty-mark { font-size: 34px; opacity: 0.5; margin-bottom: 12px; }
+.empty p { font-size: 15px; margin-top: 4px; }
+.muted { color: var(--t3); font-size: 13px; }
+
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: #0e0e0f;
+  border-top: 1px solid var(--hair);
+  display: flex;
+}
+.tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 4px;
+  font-size: 10px; color: var(--t3); text-decoration: none;
+  min-height: 44px;
+}
+.tab .ic { width: 22px; height: 22px; border: 2px solid currentColor; border-radius: 6px; }
+.tab.on { color: var(--accent); }

@@ -20,11 +20,11 @@
 ## Module 0 — Foundation (공용 기반, 두 평면이 다 씀)
 
 ### Sprint 0 — 허브 스캐폴드 + HTTPS + PWA 셸
-- [ ] `hub/`(단일 Node 프로세스) + `shared/`(공용 타입) + `pwa/` 스캐폴드
-- [ ] `tailscale serve`로 **tailnet-only HTTPS** 노출 (Funnel 금지). 폰에서 https 접속 확인
-- [ ] PWA manifest + service worker (secure context) → 홈화면 설치
-- [ ] `.env`(HUB_PORT·SESSION_SECRET·TZ·LOG_LEVEL) + `devices.example.json`(4대 스키마, allowlist)
-- **Exit:** 폰 홈화면 앱에서 빈 PWA 셸이 HTTPS로 뜬다.
+- [x] `hub/`(단일 Node: express, /healthz, PWA 정적 서빙, SPA fallback) + `shared/`(schema 스텁) + `pwa/` 스캐폴드 — 로컬 검증 통과
+- [ ] `tailscale serve`로 **tailnet-only HTTPS** 노출 (Funnel 금지). 폰에서 https 접속 확인 — `scripts/serve-https.sh` 준비됨; 허브 배포 + 폰 확인은 남음
+- [x] PWA manifest + service worker (secure context, 셸 캐시) + app.js 등록
+- [x] `.env.example`(HUB_PORT·TZ·SESSION_SECRET·LOG_LEVEL·DEVICES_FILE) + `devices.example.json`(4대 allowlist, 실 tailnet 반영)
+- **Exit:** 폰 홈화면 앱에서 빈 PWA 셸이 HTTPS로 뜬다. — 코드/로컬 ✅, **허브 배포+폰 설치 검증 남음**.
 
 ### Sprint 1 — PIN 인증 (하드닝) + 앱 셸/탭바
 - [ ] `POST /auth` PIN → 세션 쿠키(HttpOnly·Secure·SameSite=Strict), crypto-random 세션ID, 만료, 로그아웃

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="cloud-claude">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <title>cloud-claude</title>
+</head>
+<body>
+  <main id="app">
+    <header class="topbar">
+      <h1 class="large-title">Today</h1>
+      <span class="device-chip" id="deviceChip">—</span>
+    </header>
+    <section class="content" id="content">
+      <div class="empty">
+        <div class="empty-mark">◌</div>
+        <p>Scaffold shell.</p>
+        <p class="muted">Sprint 0 — hub + PWA. Auth, activity and terminal land in later sprints.</p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Primary">
+    <a class="tab on" data-tab="today"><span class="ic"></span>Today</a>
+    <a class="tab" data-tab="timeline"><span class="ic"></span>Timeline</a>
+    <a class="tab" data-tab="growth"><span class="ic"></span>Growth</a>
+    <a class="tab" data-tab="machines"><span class="ic"></span>Machines</a>
+    <a class="tab" data-tab="settings"><span class="ic"></span>Settings</a>
+  </nav>
+
+  <script src="/app.js"></script>
+</body>
+</html>

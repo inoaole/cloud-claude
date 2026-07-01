@@ -3,6 +3,7 @@
 *.key.pub
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
 !*.example.json
 .env
