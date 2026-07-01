@@ -31,3 +31,10 @@
   Mac mini/Desktop ○disabled, `tailnet:true`. `/devices` is 401 without a session, 200 with.
   Deployed to the hub (frontend/dist atomic swap + backend, v0.3.0 live). Distinguished
   offline reasons are unit-covered (both enabled devices are currently online).
+
+- `fix(sprint-2): isolate per-device probe errors in probeAll (code-review)`
+  code-review [suggestion]: wrap each device's probe in try/catch so one throwing probe
+  degrades to a single `probe-error` row instead of 500-ing the whole Machines tab. +1
+  node:test (10 hub tests). Redeployed devices.js; reprobe unchanged. (No blocking/important
+  findings — tcpProbe socket handling, findPeer, allowlist-only probing, and the Machines
+  effect cleanup all verified clean.)

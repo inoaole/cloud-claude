@@ -93,12 +93,17 @@ export async function probeDevice(device, status, { tcp = tcpProbe } = {}) {
   return result('offline', 'unreachable', 'Online, but unreachable');
 }
 
-/** Probe every device (in parallel) → the shape the Machines tab renders. */
+/** Probe every device (in parallel) → the shape the Machines tab renders.
+    Each probe is isolated: one device throwing never blanks the whole tab. */
 export async function probeAll(devices, status, deps) {
   return Promise.all(
     devices.map(async (d) => {
-      const p = await probeDevice(d, status, deps);
-      return { id: d.id, label: d.label, os: d.os ?? null, isHub: d.role === 'hub', ...p };
+      const base = { id: d.id, label: d.label, os: d.os ?? null, isHub: d.role === 'hub' };
+      try {
+        return { ...base, ...(await probeDevice(d, status, deps)) };
+      } catch {
+        return { ...base, status: 'offline', reason: 'probe-error', detail: 'Probe failed' };
+      }
     }),
   );
 }

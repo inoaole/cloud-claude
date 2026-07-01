@@ -69,3 +69,13 @@ test('probeAll returns render-shaped rows', async () => {
     [['macbook-pro', 'MacBook Pro', false, 'online'], ['hub', 'Ubuntu hub', true, 'online']],
   );
 });
+
+test('probeAll isolates a throwing probe (one bad device ≠ whole tab fails)', async () => {
+  const boom = { tcp: async () => { throw new Error('net boom'); } };
+  const rows = await probeAll([mac, hub], status, boom);
+  // hub short-circuits to online (no tcp); mac's probe throws → isolated as probe-error.
+  assert.deepEqual(rows.map((r) => [r.id, r.status, r.reason]), [
+    ['macbook-pro', 'offline', 'probe-error'],
+    ['hub', 'online', null],
+  ]);
+});
