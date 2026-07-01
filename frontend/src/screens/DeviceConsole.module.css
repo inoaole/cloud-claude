@@ -1,0 +1,47 @@
+.screen {
+  position: fixed;
+  inset: 0;
+  height: var(--vvh, 100dvh);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: #000;
+  overflow: hidden;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(var(--safe-top) + 8px) var(--gutter) 8px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.back {
+  flex: none;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 26px;
+  line-height: 1;
+  min-width: 44px;
+  min-height: 44px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--t1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status { font-size: 11px; }
+.connecting { color: var(--t3); }
+.connected { color: var(--accent); }
+.error { color: var(--danger); }
+.closed { color: var(--t3); }
+
+.body { min-height: 0; overflow: hidden; }

@@ -63,7 +63,9 @@ export async function login(pin: string): Promise<LoginResult> {
     return { kind: 'locked', retryAfter };
   }
   if (res.status === 503) return { kind: 'no_pin' };
-  return { kind: 'bad_pin' };
+  if (res.status === 401) return { kind: 'bad_pin' };
+  // 5xx / 502 gateway (hub process down) etc. — NOT a wrong PIN. Be honest.
+  return { kind: 'unreachable' };
 }
 
 /** Is there a live session? Used on boot to skip the unlock screen. */
@@ -112,6 +114,34 @@ export async function getPtyToken(): Promise<string> {
   const body = await readJson(res);
   if (typeof body.token !== 'string') throw new ApiError(res.status, body);
   return body.token;
+}
+
+// ── Agent sessions (Agent mode) ───────────────────────────────────────────────
+export interface AgentSession {
+  id: string;
+  deviceId: string;
+  kind: string;
+  title: string;
+  cwd: string | null;
+  status: string;
+  createdAt: number;
+}
+
+export async function createAgentSession(device: string, cwd?: string): Promise<AgentSession> {
+  const res = await apiFetch('/sessions', { method: 'POST', body: JSON.stringify({ device, cwd }) });
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  return (await readJson(res)).session as AgentSession;
+}
+
+export async function listAgentSessions(device: string): Promise<AgentSession[]> {
+  const res = await apiFetch(`/sessions?device=${encodeURIComponent(device)}`);
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  const body = await readJson(res);
+  return Array.isArray(body.sessions) ? (body.sessions as AgentSession[]) : [];
+}
+
+export async function killAgentSession(id: string): Promise<void> {
+  await apiFetch(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 // ── Health ──────────────────────────────────────────────────────────────────

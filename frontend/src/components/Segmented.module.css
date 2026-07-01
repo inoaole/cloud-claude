@@ -1,0 +1,23 @@
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--card);
+  border-radius: 9px;
+}
+
+.opt {
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  min-height: 32px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.opt.on {
+  background: var(--accent);
+  color: #fff;
+}

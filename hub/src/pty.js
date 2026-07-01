@@ -36,7 +36,7 @@ export function sweepTokens(now = Date.now()) {
 // Defense-in-depth: fields that get interpolated into an ssh/tailscale target must not be
 // mistakable for CLI options (leading '-') or contain whitespace/control chars. devices.json
 // is admin-controlled, but an SSH command builder should never trust its inputs blindly.
-function assertSafeArg(value, field) {
+export function assertSafeArg(value, field) {
   if (typeof value !== 'string' || value === '') throw new Error(`device ${field} missing`);
   if (value.startsWith('-') || /[\s\x00-\x1f]/.test(value)) throw new Error(`device ${field} unsafe: ${value}`);
   return value;
