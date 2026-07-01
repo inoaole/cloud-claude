@@ -31,7 +31,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('AgentChat', () => {
   it('runs a turn: streams assistant text, shows a tool chip + result, closes with a summary', async () => {
     const user = userEvent.setup();
-    render(<AgentChat id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
     const input = await screen.findByLabelText('Message');
 
     await user.type(input, 'fix the bug');
@@ -57,7 +57,7 @@ describe('AgentChat', () => {
 
   it('surfaces the error text on a failed turn (e.g. claude not authenticated)', async () => {
     const user = userEvent.setup();
-    render(<AgentChat id="hub" label="hub" onStatus={() => {}} />);
+    render(<AgentChat sessionId="s1" id="hub" label="hub" onStatus={() => {}} />);
     await user.type(await screen.findByLabelText('Message'), 'hi');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     await act(async () => {
@@ -69,7 +69,7 @@ describe('AgentChat', () => {
 
   it('shows Stop while running and sends a stop message', async () => {
     const user = userEvent.setup();
-    render(<AgentChat id="d" label="D" onStatus={() => {}} />);
+    render(<AgentChat sessionId="s1" id="d" label="D" onStatus={() => {}} />);
     await user.type(await screen.findByLabelText('Message'), 'go');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
@@ -81,7 +81,7 @@ describe('AgentChat', () => {
 
   it('expands a tool chip to show input + output on tap', async () => {
     const user = userEvent.setup();
-    render(<AgentChat id="d" label="D" onStatus={() => {}} />);
+    render(<AgentChat sessionId="s1" id="d" label="D" onStatus={() => {}} />);
     await user.type(await screen.findByLabelText('Message'), 'go');
     await user.click(screen.getByRole('button', { name: 'Send' }));
     await act(async () => {

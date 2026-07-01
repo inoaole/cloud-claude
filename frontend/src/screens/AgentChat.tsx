@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { createAgentSession, getPtyToken } from '../lib/api';
+import { getPtyToken } from '../lib/api';
 import { Composer } from '../components/Composer';
 import { Chips } from '../components/Chips';
 import type { Conn } from './DeviceConsole';
@@ -116,8 +116,8 @@ function summarize(blocks: Block[]) {
 const rid = () => Math.random().toString(36).slice(2, 10);
 const STARTERS = ['explain this repo', 'run the tests', 'what changed recently?', 'fix the failing test'];
 
-/** Agent mode body — chat with claude on the device, over /agent. */
-export function AgentChat({ id, label, onStatus }: { id: string; label: string; onStatus: (c: Conn) => void }) {
+/** Agent mode body — chat with claude on the device over /agent, in a specific session. */
+export function AgentChat({ id, sessionId, label, onStatus }: { id: string; sessionId: string; label: string; onStatus: (c: Conn) => void }) {
   const [turns, dispatch] = useReducer(reducer, []);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -128,12 +128,10 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
 
   useEffect(() => {
     let disposed = false;
-    let sessionId: string | null = null;
 
     const connect = async () => {
       onStatus('connecting'); setReady(false);
       try {
-        if (!sessionId) sessionId = (await createAgentSession(id)).id;
         const token = await getPtyToken();
         if (disposed) return;
         const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -163,7 +161,7 @@ export function AgentChat({ id, label, onStatus }: { id: string; label: string; 
     connectRef.current = () => { void connect(); };
     void connect();
     return () => { disposed = true; try { wsRef.current?.close(); } catch { /* noop */ } };
-  }, [id, onStatus]);
+  }, [id, sessionId, onStatus]);
 
   useEffect(() => { scrollRef.current?.scrollTo?.({ top: scrollRef.current.scrollHeight }); }, [turns]);
 

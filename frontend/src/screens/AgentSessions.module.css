@@ -1,0 +1,43 @@
+.wrap { height: 100%; overflow-y: auto; padding: 16px var(--gutter); background: #000; }
+
+.header {
+  font-size: 13px; font-weight: 400; text-transform: uppercase; letter-spacing: 0.6px;
+  color: var(--t4); padding: 0 4px 8px;
+}
+
+.card { border: 1px solid var(--hair); border-radius: var(--radius); overflow: hidden; }
+
+.row { display: flex; align-items: stretch; background: var(--card); }
+.row + .row, .card > .new { border-top: 1px solid var(--hair); }
+
+.open {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  min-height: 52px; padding: 10px 14px;
+  border: none; background: transparent; text-align: left; cursor: pointer;
+  color: var(--t1); font-size: 16px;
+}
+.open:active { background: var(--raised); }
+.dot { flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.running { background: var(--accent); box-shadow: 0 0 0 3px rgba(0,102,204,0.18); }
+.starting { background: var(--accent); opacity: 0.6; }
+.idle { border: 1.5px solid var(--t3); }
+.exited, .error { border: 1.5px solid var(--t3); opacity: 0.6; }
+.title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.age { flex: none; color: var(--t4); font: 400 12px var(--mono); }
+
+.kill {
+  flex: none; padding: 0 16px; min-height: 52px;
+  border: none; border-left: 1px solid var(--hair); background: transparent;
+  color: var(--danger); font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.kill:active { background: var(--raised); }
+
+.new {
+  display: block; width: 100%; min-height: 52px; padding: 10px 14px;
+  border: none; background: var(--card); text-align: left;
+  color: var(--accent); font-size: 16px; cursor: pointer;
+}
+.new:active { background: var(--raised); }
+.new:disabled { color: var(--t3); }
+
+.empty { color: var(--t4); font-size: 14px; text-align: center; padding: 24px 20px; }
