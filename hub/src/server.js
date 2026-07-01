@@ -1,24 +1,88 @@
 // cloud-claude hub — single Node process.
 // Sprint 0: serve the PWA shell + /healthz.
-// Later sprints add: PIN auth, GET /devices, POST /ingest, GET /rollup, POST /note, WS /pty.
+// Sprint 1: PIN auth (POST /auth, POST /logout, GET /auth/me) + requireAuth middleware.
+// Later: GET /devices, POST /ingest, GET /rollup, POST /note, WS /pty (all behind requireAuth).
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import { config } from './config.js';
+import {
+  COOKIE, pinMatches, lockoutSeconds, recordFailure, resetFailures,
+  createSession, sessionValid, revokeSession, signSid, unsignSid,
+} from './auth.js';
 
 const app = express();
 app.disable('x-powered-by');
+app.use(cookieParser());
+app.use(express.json({ limit: '4kb' }));
 
-// Health check (used by deploy/canary later).
+// Structured audit log — auth events only, never content (eng-review).
+function audit(event, extra = {}) {
+  console.log(JSON.stringify({ t: new Date().toISOString(), event, ...extra }));
+}
+
+function setSessionCookie(res, sid) {
+  res.cookie(COOKIE, signSid(sid, config.sessionSecret), {
+    httpOnly: true,
+    secure: true, // page is HTTPS (tailscale serve); browser honours Secure
+    sameSite: 'strict',
+    maxAge: config.sessionTtlMs,
+    path: '/',
+  });
+}
+
+export function requireAuth(req, res, next) {
+  const sid = unsignSid(req.cookies?.[COOKIE], config.sessionSecret);
+  if (sid && sessionValid(sid)) {
+    req.sid = sid;
+    return next();
+  }
+  return res.status(401).json({ error: 'unauthorized' });
+}
+
+// Health check (public).
 app.get('/healthz', (_req, res) => {
   res.json({ ok: true, service: 'cloud-claude-hub', version: config.version });
 });
 
-// Static PWA shell (served over HTTPS by `tailscale serve` in front of this port).
+// ── Auth ────────────────────────────────────────────────────────────────────
+app.post('/auth', (req, res) => {
+  const locked = lockoutSeconds();
+  if (locked) {
+    audit('auth_locked', { retryAfter: locked });
+    return res.status(429).json({ error: 'locked', retryAfter: locked });
+  }
+  if (!config.pin) {
+    audit('auth_no_pin_configured');
+    return res.status(503).json({ error: 'pin_not_configured' });
+  }
+  if (pinMatches(req.body?.pin, config.pin)) {
+    resetFailures();
+    const sid = createSession(config.sessionTtlMs);
+    setSessionCookie(res, sid);
+    audit('auth_ok');
+    return res.json({ ok: true });
+  }
+  recordFailure();
+  audit('auth_fail', { lockout: lockoutSeconds() });
+  return res.status(401).json({ error: 'bad_pin', lockout: lockoutSeconds() });
+});
+
+app.post('/logout', (req, res) => {
+  const sid = unsignSid(req.cookies?.[COOKIE], config.sessionSecret);
+  if (sid) revokeSession(sid);
+  res.clearCookie(COOKIE, { path: '/' });
+  audit('logout');
+  res.json({ ok: true });
+});
+
+app.get('/auth/me', requireAuth, (_req, res) => res.json({ ok: true }));
+
+// ── PWA shell (public — serves the unlock screen to unauthenticated users) ────
 app.use(
   express.static(config.paths.pwaDir, {
     extensions: ['html'],
     setHeaders(res, filePath) {
-      // Never cache the service worker or the shell HTML aggressively.
       if (filePath.endsWith('sw.js') || filePath.endsWith('index.html')) {
         res.setHeader('Cache-Control', 'no-cache');
       }
@@ -26,12 +90,11 @@ app.use(
   })
 );
 
-// SPA fallback — every non-file route renders the shell.
 app.get('*', (_req, res) => {
   res.sendFile(path.join(config.paths.pwaDir, 'index.html'));
 });
 
 app.listen(config.port, () => {
   console.log(`[hub] listening on :${config.port} (tz=${config.tz}, log=${config.logLevel})`);
-  console.log(`[hub] front with:  tailscale serve --bg ${config.port}`);
+  console.log(`[hub] front with:  sudo tailscale serve --bg ${config.port}`);
 });

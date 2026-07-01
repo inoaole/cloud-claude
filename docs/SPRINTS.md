@@ -27,10 +27,10 @@
 - **Exit:** 폰 홈화면 앱에서 빈 PWA 셸이 HTTPS로 뜬다. — **달성 ✅** (폰 홈화면 설치 확인).
 
 ### Sprint 1 — PIN 인증 (하드닝) + 앱 셸/탭바
-- [ ] `POST /auth` PIN → 세션 쿠키(HttpOnly·Secure·SameSite=Strict), crypto-random 세션ID, 만료, 로그아웃
-- [ ] 레이트리밋 + 락아웃/백오프 (무차별 방지), 감사로그(인증 시도)
-- [ ] PWA: PIN 언락 화면 + 탭바(Today·Timeline·Growth·Machines·Settings), A/Journal 토큰 적용
-- **Exit:** PIN 넣고 언락 → 탭바 있는 다크 셸. 틀린 PIN은 차단된다.
+- [x] `POST /auth` PIN → 세션 쿠키(HttpOnly·Secure·SameSite=Strict), crypto-random 세션ID, HMAC 서명, 만료, `/logout` 폐기
+- [x] 레이트리밋 + 락아웃(5회→60s), 감사로그(auth_ok/auth_fail/auth_locked, 내용 제외) — 로컬 curl 검증
+- [x] PWA: PIN 언락 화면(로고+dots+키패드, A/Journal) + `/auth/me`로 재방문 시 언락 스킵 + 락아웃 카운트다운
+- **Exit:** PIN 넣고 언락 → 탭바 있는 다크 셸. 틀린 PIN은 차단된다. — 코드/로컬 ✅, **허브 배포+HUB_PIN 설정+폰 확인 남음**.
 
 ---
 

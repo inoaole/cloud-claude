@@ -55,3 +55,31 @@ body {
 }
 .tab .ic { width: 22px; height: 22px; border: 2px solid currentColor; border-radius: 6px; }
 .tab.on { color: var(--accent); }
+
+/* ── Unlock screen ─────────────────────────────────────────── */
+.unlock {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; align-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 12vh) 24px calc(env(safe-area-inset-bottom, 0px) + 24px);
+  background: var(--bg);
+}
+.unlock-logo { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+.unlock-sub { font-size: 14px; color: var(--t3); margin-top: 8px; min-height: 20px; text-align: center; }
+.unlock-sub.error { color: #ff6b6b; }
+.pin-dots { display: flex; gap: 16px; margin: 34px 0 40px; }
+.pin-dots i { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--t2); }
+.pin-dots i.f { background: var(--accent); border-color: var(--accent); }
+.keypad {
+  margin-top: auto;
+  display: grid; grid-template-columns: repeat(3, 78px); gap: 18px;
+  justify-content: center;
+}
+.key {
+  width: 78px; height: 78px; border-radius: 50%;
+  background: var(--card); color: var(--t1);
+  border: 1px solid var(--hair);
+  font: 400 26px var(--ui); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.key:active { background: var(--raised); }
+.key-alt { background: transparent; border-color: transparent; color: var(--accent); font-size: 22px; }
