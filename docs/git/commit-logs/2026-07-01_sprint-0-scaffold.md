@@ -16,3 +16,7 @@
 
 Sprint 0 Exit MET: deployed to the hub, `tailscale serve` live at
 https://cloud-claude-hub.tail978fc3.ts.net/, PWA shell installs on the phone home screen over HTTPS.
+
+- `chore(release): bump to 0.2.0 (sprint-0 merged to develop)`
+  PR #1 merged to `develop` (merge commit). VERSION 0.1.0 -> 0.2.0 and hub/package.json to match
+  (so `/healthz` reports the release version). Sprint 0 closed.
