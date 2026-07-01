@@ -47,9 +47,10 @@
 ## Module 1 — Device plane (Terminal 모드) — "밖에서 내 기계 붙기"
 
 ### Sprint 2 — 기기 목록 + 프로브 (Machines 탭)
-- [ ] `GET /devices` — `tailscale status`(힌트) + TCP/SSH 프로브 → ●/○, **구분된 에러**(ACL-deny/자는/MagicDNS/방화벽)
-- [ ] Machines 탭: 4대 그룹드 리스트(MacBook Pro·Desktop·Mac mini·Ubuntu hub, 허브는 Hub 표시)
-- **Exit:** Machines에서 4대 상태(●/○)가 정확히 보이고, 오프라인 사유가 구분된다.
+- [x] `GET /devices`(requireAuth) — `tailscale status --json`(힌트) + TCP SSH:22 프로브 → ●/○, **구분된 사유**(disabled/asleep/not-on-tailnet/ssh-closed/firewall). `hub/src/devices.js`(순수 분류기+주입식 TCP), probeAll 기기별 예외 격리.
+- [x] Machines 탭: 4대 그룹드 리스트(상태 dot=모노+Action Blue, 허브는 Hub 태그) + loading/error/empty 상태 + Recheck. `Cell`에 leading 슬롯.
+- [x] 테스트: hub `node --test` 10 + Vitest 3 (총 25 그린). 허브 실배포+실프로브 검증(MacBook Pro·hub ●online, Mac mini·Desktop ○disabled).
+- **Exit:** Machines에서 4대 상태(●/○)가 정확히 보이고, 오프라인 사유가 구분된다. — **달성 ✅** (허브 실프로브 검증; 사유 구분은 유닛테스트 커버, 현재 enabled 2대 online).
 
 ### Sprint 3 — 터미널 릴레이 (핵심)
 - [ ] `WS /pty?device=` — Origin 검증 + PIN 세션에서 발급한 **단기 WS 토큰** 요구

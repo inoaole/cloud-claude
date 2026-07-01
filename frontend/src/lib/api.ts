@@ -84,6 +84,27 @@ export async function logout(): Promise<void> {
   }
 }
 
+// ── Devices (Machines tab) ────────────────────────────────────────────────────
+export type DeviceStatus = 'online' | 'offline' | 'disabled';
+
+export interface Device {
+  id: string;
+  label: string;
+  os: string | null;
+  isHub: boolean;
+  status: DeviceStatus;
+  reason: string | null;
+  /** Human-readable offline explanation (design: distinguish the reason honestly). */
+  detail: string | null;
+}
+
+export async function getDevices(): Promise<Device[]> {
+  const res = await apiFetch('/devices');
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  const body = await readJson(res);
+  return Array.isArray(body.devices) ? (body.devices as Device[]) : [];
+}
+
 // ── Health ──────────────────────────────────────────────────────────────────
 export type Health = { ok: boolean; version?: string };
 

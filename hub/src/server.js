@@ -10,6 +10,7 @@ import {
   COOKIE, pinMatches, lockoutSeconds, recordFailure, resetFailures,
   createSession, sessionValid, revokeSession, signSid, unsignSid,
 } from './auth.js';
+import { loadDevices, readTailnetStatus, probeAll } from './devices.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -77,6 +78,19 @@ app.post('/logout', (req, res) => {
 });
 
 app.get('/auth/me', requireAuth, (_req, res) => res.json({ ok: true }));
+
+// ── Devices (Machines tab) — probe the 4-device allowlist from the hub ─────────
+app.get('/devices', requireAuth, async (_req, res) => {
+  try {
+    const devices = await loadDevices(config.devicesFile);
+    const status = await readTailnetStatus();
+    const rows = await probeAll(devices, status);
+    res.json({ devices: rows, tailnet: Boolean(status) });
+  } catch (err) {
+    audit('devices_error', { msg: String(err?.message || err) });
+    res.status(500).json({ error: 'devices_failed' });
+  }
+});
 
 // ── PWA shell (public — serves the unlock screen to unauthenticated users) ────
 app.use(
