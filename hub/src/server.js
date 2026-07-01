@@ -22,13 +22,21 @@ import {
   getSession as getAgentSession, removeSession as removeAgentSession, setStatus as setAgentStatus,
 } from './sessions.js';
 import { assertCwd, buildAgentCommand, mapEvent, wrapUserMessage } from './agent.js';
+import { openDb, insertEvents, queryTimeline } from './db.js';
+import { handleIngest } from './ingest.js';
 
 // Live agent bridges keyed by session id: { child, ws, buf, lineBuf, graceTimer }.
 const agentBridges = new Map();
 
+// Hub-plane timeline (Sprint 5). Opened once; WAL lets /timeline read while /ingest writes.
+const db = openDb(config.dbFile);
+
 const app = express();
 app.disable('x-powered-by');
 app.use(cookieParser());
+// /ingest carries event batches → a larger cap (device-authed, tailnet-only). Scoped parser runs
+// BEFORE the global one; express.json is idempotent, so the global 4kb parser then skips /ingest.
+app.use('/ingest', express.json({ limit: '64kb' }));
 app.use(express.json({ limit: '4kb' }));
 
 // Structured audit log — auth events only, never content (eng-review).
@@ -103,6 +111,47 @@ app.get('/devices', requireAuth, async (_req, res) => {
   } catch (err) {
     audit('devices_error', { msg: String(err?.message || err) });
     res.status(500).json({ error: 'devices_failed' });
+  }
+});
+
+// ── Hub plane: collector ingest → SQLite timeline (Sprint 5) ──────────────────
+// POST /ingest — a device's collector pushes an event batch. Auth = per-device ingest token
+// (Bearer), NOT the phone PIN. Idempotent (INSERT OR IGNORE on deterministic event_id).
+app.post('/ingest', async (req, res) => {
+  let devices;
+  try {
+    devices = await loadDevices(config.devicesFile);
+  } catch (err) {
+    audit('ingest_error', { msg: String(err?.message || err) });
+    return res.status(500).json({ error: 'ingest_failed' });
+  }
+  const r = handleIngest({
+    devices,
+    body: req.body,
+    authHeader: req.headers.authorization,
+    insertFn: (events, now) => insertEvents(db, events, now),
+  });
+  audit(r.status === 200 ? 'ingest_ok' : 'ingest_reject', {
+    deviceId: req.body?.device_id, status: r.status,
+    ...(r.status === 200 ? r.body : { reason: r.body?.error }),
+  });
+  res.status(r.status).json(r.body);
+});
+
+// GET /timeline — read the timeline (phone, behind the PIN). Real-column filters only.
+app.get('/timeline', requireAuth, (req, res) => {
+  try {
+    const events = queryTimeline(db, {
+      device: req.query.device,
+      kind: req.query.kind,
+      since: req.query.since != null ? Number(req.query.since) : undefined,
+      until: req.query.until != null ? Number(req.query.until) : undefined,
+      limit: req.query.limit,
+    });
+    res.json({ events });
+  } catch (err) {
+    audit('timeline_error', { msg: String(err?.message || err) });
+    res.status(500).json({ error: 'timeline_failed' });
   }
 });
 

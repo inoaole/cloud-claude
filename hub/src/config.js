@@ -34,6 +34,8 @@ export const config = {
   sessionTtlMs: parseTtl(process.env.SESSION_TTL, 7 * 864e5),
   // Device registry (gitignored). Copy devices.example.json -> devices.json.
   devicesFile: process.env.DEVICES_FILE || path.join(repoRoot, 'devices.json'),
+  // Hub-plane SQLite timeline (Sprint 5). Runtime data, gitignored; overridable for tests/deploy.
+  dbFile: process.env.DB_FILE || path.join(repoRoot, 'data', 'timeline.db'),
   // Terminal relay (Sprint 3). The hub-only SSH key for classic-SSH (Mac) targets, and
   // the tmux path on macOS targets (non-login ssh lacks Homebrew's PATH). Fixed session
   // name = no injection surface. WS token TTL is short + single-use.

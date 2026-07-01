@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  cloud-claude collector launchd agent (macOS). Fires the collector every StartInterval seconds
+  as a FRESH process (one scan, then exit) — not a resident daemon. Install per-user (LaunchAgents),
+  not as root: the collector reads the user's git repos and ~/.cloud-claude-collector/config.json.
+
+  Placeholders to replace before install (see collector/README.md):
+    __NODE__        absolute node path      (e.g. /opt/homebrew/bin/node)
+    __INDEX__       absolute index.js path  (e.g. /Users/you/.../collector/src/index.js)
+    __LOG__         absolute log path       (e.g. /Users/you/.cloud-claude-collector/collector.log)
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.cloud-claude.collector</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__NODE__</string>
+    <string>__INDEX__</string>
+  </array>
+
+  <!-- Homebrew git/node live here; a launchd job gets a bare PATH otherwise. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+
+  <key>StartInterval</key>
+  <integer>180</integer>
+
+  <!-- Run once shortly after load so you don't wait a full interval to see it work. -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__LOG__</string>
+  <key>StandardErrorPath</key>
+  <string>__LOG__</string>
+</dict>
+</plist>

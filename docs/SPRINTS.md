@@ -73,10 +73,12 @@
 ## Module 2 — Hub plane (일상 루프) — "하루를 비춰주기"
 
 ### Sprint 5 — 수집기 (MacBook Pro) + 허브 인제스트
-- [ ] `collector/`(Node, launchd 2~5분 폴러): `commit_seen`(git)·`session_observed`(ps: claude/codex/tmux, cwd via lsof/tmux)·`heartbeat`
-- [ ] **결정적 event_id**(`commit:device:repo:sha` 등), 영속 워터마크(재시작 중복 방지) + outbox 재전송
-- [ ] `POST /ingest` — per-device 토큰, `event_id` 멱등 dedup, SQLite append-only 타임라인, ts_device+ts_hub, schema_version
-- **Exit:** MacBook Pro 활동(커밋·세션)이 허브 타임라인에 실제로 쌓인다(재시작해도 중복 없음).
+스코프 2-split (eng-review + codex 2026-07-02): **v1a** = 파이프라인 실증(commit_seen+heartbeat),
+**v1b** = session_observed(프로세스 스캔, 스파이크 후). v1a는 `feature/v0.7.0/collector-ingest`에서 완료.
+- [~] `collector/`(Node, launchd 폴러): `commit_seen`(git)·`heartbeat` **DONE(v1a)**; `session_observed`(ps: claude/codex/tmux, cwd via lsof/tmux) = **v1b(스파이크 후)**
+- [x] **결정적 event_id**(`commit:device:repoId:sha`, `heartbeat:device:ts`), 영속 워터마크(첫실행 무백필·rebase 가드) + outbox 재전송(auth/5xx→keep, 400→drop)
+- [x] `POST /ingest` — per-device 토큰(timingSafeEqual, enabled 킬스위치), `event_id` 멱등 dedup(INSERT OR IGNORE), SQLite(better-sqlite3 WAL) append-only, ts_device+ts_hub, schema_version + `GET /timeline`(PIN)
+- **Exit(v1a 충족):** MacBook Pro 커밋이 허브 타임라인에 실제로 쌓임, 재시작·재전송해도 중복 없음(87 유닛 + e2e 실증). 세션 활동은 v1b.
 
 ### Sprint 6 — Today (저녁 회고 PWA)
 - [ ] `GET /rollup?date=`(로컬 TZ) — 하루 Sessions/Commits 유도, 지속시간은 **추정(`~`)** 표기

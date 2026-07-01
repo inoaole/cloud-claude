@@ -11,6 +11,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now cloud-claude-hub
 ```
 
+## Native modules
+The hub uses two native addons — `node-pty` (terminal relay) and `better-sqlite3` (Sprint 5
+timeline). Both compile on the hub (needs `build-essential`). After a `hub/package.json` dependency
+change, run `npm install` in `hub/` on the hub (node 20) so the addons rebuild before restart.
+
 ## Deploy an update
 Build the frontend locally, ship `frontend/dist` (atomic swap) + changed `hub/` files, then:
 ```bash

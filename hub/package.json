@@ -4,13 +4,16 @@
   "version": "0.6.1",
   "description": "cloud-claude hub — single Node process: serves the PWA and (later) collector ingest + terminal relay",
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test"
   },
   "dependencies": {
+    "better-sqlite3": "^11.10.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
     "express": "^4.21.2",

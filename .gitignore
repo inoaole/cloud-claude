@@ -29,6 +29,12 @@ __pycache__/
 # Build
 node_modules/
 *.zip
+
+# Hub-plane runtime data (SQLite timeline) — never committed
+data/
+*.db
+*.db-wal
+*.db-shm
 frontend/dist/
 frontend/dev-dist/
 frontend/test-results/
