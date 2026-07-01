@@ -10,3 +10,7 @@
   authed; lockout countdown surfaced. Verified locally with curl: wrong→401, correct→cookie,
   /auth/me 200(cookie)/401(none)/401(tampered), 5 fails→429.
   Remaining for Exit: deploy + set HUB_PIN on the hub + verify unlock on the phone.
+
+- `chore(release): bump to 0.3.0 (sprint-1 merged to develop)`
+  PR #2 merged. VERSION 0.2.0 -> 0.3.0 + hub/package.json. v0.3 next = migrate the PWA frontend
+  to React (plan-eng-review first) and fix the iPhone bottom-tab-bar / home-indicator safe-area bug.
