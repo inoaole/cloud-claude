@@ -40,7 +40,7 @@
 - [x] `vite-plugin-pwa`(SW navigateFallback denylist: /auth·/logout·/api·/pty·/healthz) + iOS 메타 패리티 · 5개 탭 honest-quiet 스텁
 - [x] design-review 이월분 선반영: 탭 구분 글리프 · Cell 후행엣지 디스클로저 · `--t4` 뮤트 대비 · Growth 팔레트/heat 토큰
 - [x] Vitest 12 + Playwright smoke 1 통과 · 빌드 클린 · hub `frontend/dist` 서빙(자산 immutable/셸 no-cache) · code-review 보강
-- **Exit:** 빌드 → 허브 원자적 배포 → **iPhone 16 Pro에서 탭바가 home indicator 위**(safe-area) 스크린샷. — 코드/로컬 ✅, **배포+폰 확인 남음** → 확인 후 `pwa/` 삭제.
+- **Exit:** 빌드 → 허브 원자적 배포 → **iPhone 16 Pro에서 탭바가 home indicator 위**(safe-area). — **달성 ✅** (허브 배포 v0.3.0 라이브 + 폰 확인 완료, `pwa/` 삭제).
 
 ---
 
