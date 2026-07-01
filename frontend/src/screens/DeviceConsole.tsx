@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Segmented } from '../components/Segmented';
+import { AgentChat } from './AgentChat';
 import { CommandChat } from './CommandChat';
 import { Terminal } from './Terminal';
 import styles from './DeviceConsole.module.css';
 
 export type Conn = 'connecting' | 'connected' | 'closed' | 'error';
-type Mode = 'chat' | 'terminal';
+type Mode = 'agent' | 'chat' | 'terminal';
 
 const STATUS: Record<Conn, string> = {
   connecting: 'Connecting…', connected: 'Connected', closed: 'Disconnected', error: "Couldn't connect",
@@ -19,7 +20,7 @@ export function DeviceConsole() {
   const navigate = useNavigate();
   const label = (useLocation().state as { label?: string } | null)?.label ?? id;
   const screenRef = useRef<HTMLDivElement>(null);
-  const [mode, setMode] = useState<Mode>('chat');
+  const [mode, setMode] = useState<Mode>('agent');
   const [conn, setConn] = useState<Conn>('connecting');
 
   // Reset status when switching modes (each mode opens its own connection).
@@ -44,16 +45,16 @@ export function DeviceConsole() {
           <span className={`${styles.status} ${styles[conn]}`}>{STATUS[conn]}</span>
         </div>
         <Segmented
-          options={[{ value: 'chat', label: 'Chat' }, { value: 'terminal', label: 'Terminal' }]}
+          options={[{ value: 'agent', label: 'Agent' }, { value: 'chat', label: 'Shell' }, { value: 'terminal', label: 'Terminal' }]}
           value={mode}
           onChange={(m) => setMode(m as Mode)}
         />
       </header>
 
       <div className={styles.body}>
-        {mode === 'chat'
-          ? <CommandChat key={`chat-${id}`} id={id} label={label} onStatus={setConn} />
-          : <Terminal key={`term-${id}`} id={id} onStatus={setConn} />}
+        {mode === 'agent' && <AgentChat key={`agent-${id}`} id={id} label={label} onStatus={setConn} />}
+        {mode === 'chat' && <CommandChat key={`chat-${id}`} id={id} label={label} onStatus={setConn} />}
+        {mode === 'terminal' && <Terminal key={`term-${id}`} id={id} onStatus={setConn} />}
       </div>
     </div>
   );

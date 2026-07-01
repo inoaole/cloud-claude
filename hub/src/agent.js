@@ -42,12 +42,13 @@ function sq(s) {
  *  - cwd validated (assertCwd) + device fields via assertSafeArg → no injection.
  */
 export function buildAgentCommand(device, cwd, opts = {}) {
-  const safeCwd = assertCwd(cwd, opts.allowedRoots);
+  // cwd is optional: null/undefined → run in the device's login home (no `cd`).
+  const cdPart = cwd != null ? `cd ${sq(assertCwd(cwd, opts.allowedRoots))} && ` : '';
   const mode = opts.permissionMode || 'acceptEdits';
   const claudeCmd = ['claude', ...CLAUDE_FLAGS, '--permission-mode', mode].join(' ');
   // A non-login zsh user's brew PATH isn't on bash's login PATH, so `claude` isn't found —
   // prepend the common bin dirs (same fix as the shell relay's SHELL_INIT).
-  const inner = `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; cd ${sq(safeCwd)} && exec ${claudeCmd}`;
+  const inner = `export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"; ${cdPart}exec ${claudeCmd}`;
 
   if (device.role === 'hub') {
     return { file: 'bash', args: ['-lc', inner] }; // local; detached spawn gives its own group

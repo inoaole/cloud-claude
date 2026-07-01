@@ -85,6 +85,13 @@ test('buildAgentCommand: Mac ssh — no -tt, single quoted remote arg, exec clau
   assert.match(remote, /--input-format stream-json/);
 });
 
+test('buildAgentCommand: null cwd → no cd (runs in login home)', () => {
+  const c = buildAgentCommand({ sshUser: 'a1234', sshHost: '1.2.3.4', connect: 'ssh' }, null, { hubKeyPath: '/k' });
+  const remote = c.args.at(-1);
+  assert.doesNotMatch(remote, /cd /);
+  assert.match(remote, /export PATH=.*; exec claude /);
+});
+
 test('buildAgentCommand: hub role → local bash -lc, no ssh', () => {
   const c = buildAgentCommand({ role: 'hub' }, '/tmp/x', {});
   assert.equal(c.file, 'bash');

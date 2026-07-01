@@ -361,7 +361,7 @@ function bridgeAgent(ws, device, session) {
   }
   let child;
   try {
-    const { file, args } = buildAgentCommand(device, session.cwd || process.env.HOME, {
+    const { file, args } = buildAgentCommand(device, session.cwd, {
       hubKeyPath: config.hubKeyPath, permissionMode: 'acceptEdits',
     });
     child = spawn(file, args, { env: process.env, detached: true }); // own process group for group-kill
