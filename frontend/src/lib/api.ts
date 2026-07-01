@@ -105,6 +105,15 @@ export async function getDevices(): Promise<Device[]> {
   return Array.isArray(body.devices) ? (body.devices as Device[]) : [];
 }
 
+/** Mint a short-lived, single-use WS token for the terminal relay. */
+export async function getPtyToken(): Promise<string> {
+  const res = await apiFetch('/pty/token', { method: 'POST' });
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  const body = await readJson(res);
+  if (typeof body.token !== 'string') throw new ApiError(res.status, body);
+  return body.token;
+}
+
 // ── Health ──────────────────────────────────────────────────────────────────
 export type Health = { ok: boolean; version?: string };
 

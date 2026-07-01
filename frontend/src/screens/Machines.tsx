@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Group } from '../components/Group';
 import { Cell } from '../components/Cell';
 import { Stub } from '../components/Stub';
@@ -25,6 +26,7 @@ type State =
 
 export function Machines() {
   const [state, setState] = useState<State>({ phase: 'loading' });
+  const navigate = useNavigate();
 
   const load = useCallback(() => {
     let alive = true;
@@ -66,7 +68,8 @@ export function Machines() {
             title={<span className={d.status === 'disabled' ? styles.disabledLabel : undefined}>{d.label}</span>}
             subtitle={subtitleFor(d)}
             value={d.isHub ? 'Hub' : undefined}
-            disclosure={false}
+            // Only reachable devices open a terminal; offline/disabled rows are inert.
+            onClick={d.status === 'online' ? () => navigate(`/machines/${d.id}`, { state: { label: d.label } }) : undefined}
           />
         ))}
       </Group>

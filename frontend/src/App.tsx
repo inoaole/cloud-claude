@@ -9,6 +9,7 @@ import { Today } from './screens/Today';
 import { Timeline } from './screens/Timeline';
 import { Growth } from './screens/Growth';
 import { Machines } from './screens/Machines';
+import { Terminal } from './screens/Terminal';
 import { Settings } from './screens/Settings';
 
 export function App() {
@@ -50,16 +51,25 @@ export function App() {
       )}
       {status === 'unauthed' && <Unlock onAuthed={ctx.onAuthed} />}
       {status === 'authed' && (
-        <AppShell>
-          <Routes>
-            <Route path="/today" element={<Today />} />
-            <Route path="/timeline" element={<Timeline />} />
-            <Route path="/growth" element={<Growth />} />
-            <Route path="/machines" element={<Machines />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/today" replace />} />
-          </Routes>
-        </AppShell>
+        <Routes>
+          {/* Terminal is full-screen (no tab bar) for maximum console height. */}
+          <Route path="/machines/:id" element={<Terminal />} />
+          <Route
+            path="*"
+            element={
+              <AppShell>
+                <Routes>
+                  <Route path="/today" element={<Today />} />
+                  <Route path="/timeline" element={<Timeline />} />
+                  <Route path="/growth" element={<Growth />} />
+                  <Route path="/machines" element={<Machines />} />
+                  <Route path="/settings" element={<Settings />} />
+                  <Route path="*" element={<Navigate to="/today" replace />} />
+                </Routes>
+              </AppShell>
+            }
+          />
+        </Routes>
       )}
     </AuthContext.Provider>
   );

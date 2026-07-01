@@ -1,6 +1,7 @@
 // Hub config, loaded from environment (.env). Never hardcode secrets.
 import 'dotenv/config';
 import path from 'node:path';
+import os from 'node:os';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -33,6 +34,12 @@ export const config = {
   sessionTtlMs: parseTtl(process.env.SESSION_TTL, 7 * 864e5),
   // Device registry (gitignored). Copy devices.example.json -> devices.json.
   devicesFile: process.env.DEVICES_FILE || path.join(repoRoot, 'devices.json'),
+  // Terminal relay (Sprint 3). The hub-only SSH key for classic-SSH (Mac) targets, and
+  // the tmux path on macOS targets (non-login ssh lacks Homebrew's PATH). Fixed session
+  // name = no injection surface. WS token TTL is short + single-use.
+  hubKeyPath: process.env.HUB_SSH_KEY || path.join(os.homedir(), '.ssh', 'id_cloud_claude'),
+  macTmuxPath: process.env.MAC_TMUX_PATH || '/opt/homebrew/bin/tmux',
+  ptySession: process.env.PTY_SESSION || 'phone',
   // The built React SPA (frontend/dist). Overridable so an atomic deploy can point at
   // a swapped-in directory. Falls back to the in-repo build path.
   paths: {

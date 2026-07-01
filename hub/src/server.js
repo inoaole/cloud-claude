@@ -5,12 +5,16 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
+import http from 'node:http';
+import { WebSocketServer } from 'ws';
+import pty from 'node-pty';
 import { config } from './config.js';
 import {
   COOKIE, pinMatches, lockoutSeconds, recordFailure, resetFailures,
   createSession, sessionValid, revokeSession, signSid, unsignSid,
 } from './auth.js';
 import { loadDevices, readTailnetStatus, probeAll } from './devices.js';
+import { issueWsToken, consumeWsToken, sweepTokens, buildCommand, originAllowed } from './pty.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -92,6 +96,16 @@ app.get('/devices', requireAuth, async (_req, res) => {
   }
 });
 
+// ── Terminal relay (Device plane) ─────────────────────────────────────────────
+// A short-lived, single-use WS token is minted here (authenticated, same-origin cookie)
+// and then presented on the WS query string. WS cookies are CSRF-hijackable, so the token
+// — not the cookie — authorizes the socket, alongside an Origin check (codex hardening).
+app.post('/pty/token', requireAuth, (req, res) => {
+  const { token, ttl } = issueWsToken(req.sid);
+  audit('pty_token_issued');
+  res.json({ token, ttl });
+});
+
 // ── PWA shell (public — serves the unlock screen to unauthenticated users) ────
 app.use(
   express.static(config.paths.pwaDir, {
@@ -112,7 +126,80 @@ app.get('*', (_req, res) => {
   res.sendFile(path.join(config.paths.pwaDir, 'index.html'));
 });
 
-app.listen(config.port, () => {
+// ── WS /pty relay: phone ⟷ hub ⟷ (ssh) ⟷ tmux ─────────────────────────────────
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+setInterval(() => sweepTokens(), 60_000).unref();
+
+server.on('upgrade', async (req, socket, head) => {
+  const reject = (code, event, extra) => {
+    audit(event, extra);
+    socket.write(`HTTP/1.1 ${code}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  };
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    if (url.pathname !== '/pty') return reject('404 Not Found', 'pty_bad_path', { path: url.pathname });
+    if (!originAllowed(req.headers.origin, req.headers.host)) {
+      return reject('403 Forbidden', 'pty_bad_origin', { origin: req.headers.origin || null });
+    }
+    const sid = consumeWsToken(url.searchParams.get('token'));
+    if (!sid || !sessionValid(sid)) return reject('401 Unauthorized', 'pty_bad_token');
+
+    const deviceId = url.searchParams.get('device');
+    const devices = await loadDevices(config.devicesFile);
+    const device = devices.find((d) => d.id === deviceId && d.enabled !== false);
+    if (!device) return reject('404 Not Found', 'pty_bad_device', { device: deviceId });
+
+    wss.handleUpgrade(req, socket, head, (ws) => bridgePty(ws, device));
+  } catch (err) {
+    reject('500 Internal Server Error', 'pty_upgrade_error', { msg: String(err?.message || err) });
+  }
+});
+
+// Bridge a WS to a node-pty running ssh→tmux. Client→server = JSON control frames
+// ({type:'stdin'|'resize'}); server→client = raw pty bytes (binary). Sprint 4 adds grace,
+// backpressure, OSC-52 strip and resource caps — here we just prove the pipe.
+function bridgePty(ws, device) {
+  let term;
+  try {
+    const { file, args } = buildCommand(device, {
+      hubKeyPath: config.hubKeyPath,
+      macTmuxPath: config.macTmuxPath,
+      session: config.ptySession,
+    });
+    term = pty.spawn(file, args, {
+      name: 'xterm-color', cols: 80, rows: 24, cwd: process.env.HOME, env: process.env,
+    });
+  } catch (err) {
+    audit('pty_spawn_error', { device: device.id, msg: String(err?.message || err) });
+    ws.close(1011, 'spawn failed');
+    return;
+  }
+  const openedAt = Date.now();
+  audit('pty_open', { device: device.id });
+
+  term.onData((data) => { if (ws.readyState === ws.OPEN) ws.send(data); });
+  term.onExit(({ exitCode }) => {
+    audit('pty_exit', { device: device.id, exitCode });
+    if (ws.readyState === ws.OPEN) ws.close(1000, 'session ended');
+  });
+
+  ws.on('message', (raw) => {
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
+    if (msg.type === 'stdin' && typeof msg.data === 'string') term.write(msg.data);
+    else if (msg.type === 'resize' && msg.cols > 0 && msg.rows > 0) {
+      term.resize(Math.min(msg.cols, 500), Math.min(msg.rows, 300));
+    }
+  });
+  ws.on('close', () => {
+    try { term.kill(); } catch { /* already gone */ }
+    audit('pty_close', { device: device.id, seconds: Math.round((Date.now() - openedAt) / 1000) });
+  });
+}
+
+server.listen(config.port, () => {
   console.log(`[hub] listening on :${config.port} (tz=${config.tz}, log=${config.logLevel})`);
   console.log(`[hub] front with:  sudo tailscale serve --bg ${config.port}`);
 });
