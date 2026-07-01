@@ -69,4 +69,9 @@ describe('login', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     expect(await login('0000')).toEqual({ kind: 'unreachable' });
   });
+
+  it('maps a 502 gateway (hub down) → unreachable, NOT bad_pin', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(502, {})));
+    expect(await login('092666')).toEqual({ kind: 'unreachable' });
+  });
 });

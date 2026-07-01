@@ -55,6 +55,18 @@ describe('Unlock', () => {
     expect(screen.getByRole('button', { name: '1' })).toBeDisabled();
   });
 
+  it('shows a distinct offline message when the hub is unreachable (not "Wrong PIN")', async () => {
+    const user = userEvent.setup();
+    mockLogin.mockResolvedValue({ kind: 'unreachable' });
+    render(<Unlock onAuthed={vi.fn()} />);
+
+    await user.click(screen.getByRole('button', { name: '1' }));
+    await user.click(screen.getByRole('button', { name: 'Submit' }));
+
+    expect(await screen.findByText(/Can't reach the hub/)).toBeInTheDocument();
+    expect(screen.queryByText('Wrong PIN')).not.toBeInTheDocument();
+  });
+
   it('reports when the hub has no PIN configured', async () => {
     const user = userEvent.setup();
     mockLogin.mockResolvedValue({ kind: 'no_pin' });

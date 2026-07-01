@@ -5,8 +5,8 @@ import styles from './Unlock.module.css';
 const MAX = 12;
 const MIN_DOTS = 4;
 
-// Visual phases (design-review): idle → submitting → (success | wrong | locked | nopin).
-type Phase = 'idle' | 'submitting' | 'wrong' | 'locked' | 'nopin' | 'success';
+// Visual phases (design-review): idle → submitting → (success | wrong | locked | nopin | offline).
+type Phase = 'idle' | 'submitting' | 'wrong' | 'locked' | 'nopin' | 'offline' | 'success';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'go'] as const;
 type Key = (typeof KEYS)[number];
@@ -56,9 +56,12 @@ export function Unlock({ onAuthed }: { onAuthed: () => void }) {
         setPhase('nopin');
         break;
       case 'bad_pin':
-      case 'unreachable':
         setPin('');
         setPhase('wrong');
+        break;
+      case 'unreachable':
+        setPin('');
+        setPhase('offline');
         break;
     }
   }, [onAuthed, startLockout]);
@@ -76,9 +79,10 @@ export function Unlock({ onAuthed }: { onAuthed: () => void }) {
       if (pin) void submit(pin);
       return;
     }
-    // digit — a fresh code replaces the cleared input after a wrong attempt.
-    setPin((p) => (phase === 'wrong' ? k : p.length < MAX ? p + k : p));
-    if (phase === 'wrong') setPhase('idle');
+    // digit — a fresh code replaces the cleared input after a wrong/offline attempt.
+    const retrying = phase === 'wrong' || phase === 'offline';
+    setPin((p) => (retrying ? k : p.length < MAX ? p + k : p));
+    if (retrying) setPhase('idle');
   }, [phase, pin, submit]);
 
   // Physical keyboard support (desktop / dev); phone uses the on-screen keypad.
@@ -93,11 +97,12 @@ export function Unlock({ onAuthed }: { onAuthed: () => void }) {
   }, [onKey]);
 
   const dotCount = Math.max(pin.length, MIN_DOTS);
-  const isError = phase === 'wrong' || phase === 'locked' || phase === 'nopin';
+  const isError = phase === 'wrong' || phase === 'locked' || phase === 'nopin' || phase === 'offline';
   const keypadDisabled = phase === 'submitting' || phase === 'locked' || phase === 'nopin' || phase === 'success';
 
   let sub = 'Enter PIN to unlock';
   if (phase === 'wrong') sub = 'Wrong PIN';
+  else if (phase === 'offline') sub = "Can't reach the hub — try again";
   else if (phase === 'nopin') sub = 'No PIN set on the hub';
   else if (phase === 'locked') sub = `Too many attempts — retry in ${lockLeft}s`;
 

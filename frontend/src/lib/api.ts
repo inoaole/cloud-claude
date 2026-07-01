@@ -63,7 +63,9 @@ export async function login(pin: string): Promise<LoginResult> {
     return { kind: 'locked', retryAfter };
   }
   if (res.status === 503) return { kind: 'no_pin' };
-  return { kind: 'bad_pin' };
+  if (res.status === 401) return { kind: 'bad_pin' };
+  // 5xx / 502 gateway (hub process down) etc. — NOT a wrong PIN. Be honest.
+  return { kind: 'unreachable' };
 }
 
 /** Is there a live session? Used on boot to skip the unlock screen. */

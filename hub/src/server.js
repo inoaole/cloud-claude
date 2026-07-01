@@ -381,7 +381,9 @@ function bridgeAgent(ws, device, session) {
   child.stderr.on('data', (c) => audit('agent_stderr', { id: session.id, msg: c.toString('utf8').slice(0, 200) }));
   child.on('exit', (code) => {
     setAgentStatus(session.id, 'exited');
-    if (b.ws?.readyState === b.ws.OPEN) b.ws.send(JSON.stringify({ type: 'exit', code }));
+    // b.ws is null once the socket has detached — guard before touching its statics (this
+    // unguarded `b.ws.OPEN` on a null ws crashed the whole hub when a child exited post-detach).
+    if (b.ws && b.ws.readyState === b.ws.OPEN) b.ws.send(JSON.stringify({ type: 'exit', code }));
     if (b.graceTimer) clearTimeout(b.graceTimer);
     agentBridges.delete(session.id);
     audit('agent_exit', { id: session.id, code });
