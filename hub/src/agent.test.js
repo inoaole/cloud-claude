@@ -56,7 +56,7 @@ test('mapEvent: malformed event never throws', () => {
 });
 
 test('assertCwd: absolute + no traversal + no metachars', () => {
-  assert.equal(assertCwd('/Users/a1234/proj'), '/Users/a1234/proj');
+  assert.equal(assertCwd('/Users/dev/proj'), '/Users/dev/proj');
   assert.throws(() => assertCwd('relative/path'), /absolute/);
   assert.throws(() => assertCwd('/a/../b'), /unsafe/);
   assert.throws(() => assertCwd('/a; rm -rf /'), /unsafe/);
@@ -64,29 +64,29 @@ test('assertCwd: absolute + no traversal + no metachars', () => {
 });
 
 test('assertCwd: allowedRoots enforced', () => {
-  assert.equal(assertCwd('/Users/a1234/proj/x', ['/Users/a1234/proj']), '/Users/a1234/proj/x');
-  assert.throws(() => assertCwd('/etc/passwd', ['/Users/a1234/proj']), /outside allowed roots/);
+  assert.equal(assertCwd('/Users/dev/proj/x', ['/Users/dev/proj']), '/Users/dev/proj/x');
+  assert.throws(() => assertCwd('/etc/passwd', ['/Users/dev/proj']), /outside allowed roots/);
 });
 
 test('buildAgentCommand: Mac ssh — no -tt, single quoted remote arg, exec claude in cwd', () => {
   const c = buildAgentCommand(
-    { sshUser: 'a1234', sshHost: '100.66.78.59', connect: 'ssh' },
-    '/Users/a1234/proj',
+    { sshUser: 'dev', sshHost: '100.64.0.7', connect: 'ssh' },
+    '/Users/dev/proj',
     { hubKeyPath: '/k', permissionMode: 'acceptEdits' },
   );
   assert.equal(c.file, 'ssh');
   assert.ok(!c.args.includes('-tt'), 'no pty — keeps stream-json stdin clean');
-  assert.equal(c.args.at(-2), 'a1234@100.66.78.59');
+  assert.equal(c.args.at(-2), 'dev@100.64.0.7');
   const remote = c.args.at(-1); // ONE arg (ssh flattens argv): bash -lc '<inner>'
   assert.match(remote, /^bash -lc '/);
   assert.match(remote, /export PATH="\/opt\/homebrew\/bin/); // brew PATH so claude resolves
-  assert.match(remote, /cd '\\''\/Users\/a1234\/proj'\\'' && exec claude /);
+  assert.match(remote, /cd '\\''\/Users\/dev\/proj'\\'' && exec claude /);
   assert.match(remote, /--permission-mode acceptEdits/);
   assert.match(remote, /--input-format stream-json/);
 });
 
 test('buildAgentCommand: null cwd → no cd (runs in login home)', () => {
-  const c = buildAgentCommand({ sshUser: 'a1234', sshHost: '1.2.3.4', connect: 'ssh' }, null, { hubKeyPath: '/k' });
+  const c = buildAgentCommand({ sshUser: 'dev', sshHost: '1.2.3.4', connect: 'ssh' }, null, { hubKeyPath: '/k' });
   const remote = c.args.at(-1);
   assert.doesNotMatch(remote, /cd /);
   assert.match(remote, /export PATH=.*; exec claude /);

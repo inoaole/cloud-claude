@@ -9,7 +9,7 @@
 > - **Hub plane** — 일상 관리, 기기 무관. 허브가 활동을 하나로 합침 → Today/회고. (센서→타임라인→PWA)
 > - **Device plane** — 특정 기기 직접 작업. Machines에서 기기 택1 → 터미널(WebSocket). (Agent 모드 = v1.5)
 >
-> 설계 근거: `~/.gstack/projects/cloud-claude/a1234-main-design-20260701-112548.md` (ENG CLEARED,
+> 설계 근거: `~/.gstack/projects/cloud-claude/<user>-main-design-20260701-112548.md` (ENG CLEARED,
 > 양 평면). 각 스프린트 끝에 "증명할 한 가지(Exit)". 1주 단위, 솔로.
 >
 > 순서 메모: Module 0(공용 기반) 먼저. 그다음 Device plane(M1)·Hub plane(M2)은 **독립**이라
@@ -21,7 +21,7 @@
 
 ### Sprint 0 — 허브 스캐폴드 + HTTPS + PWA 셸
 - [x] `hub/`(단일 Node: express, /healthz, PWA 정적 서빙, SPA fallback) + `shared/`(schema 스텁) + `pwa/` 스캐폴드 — 로컬 검증 통과
-- [x] `tailscale serve`로 **tailnet-only HTTPS** 노출 (Funnel 금지) — 허브 배포됨, `https://cloud-claude-hub.tail978fc3.ts.net/` 라이브, 폰 접속 확인
+- [x] `tailscale serve`로 **tailnet-only HTTPS** 노출 (Funnel 금지) — 허브 배포됨, `https://<hub>.<tailnet>.ts.net/` 라이브, 폰 접속 확인
 - [x] PWA manifest + service worker (secure context, HTML=network-first/자산=cache-first) + app.js 등록
 - [x] `.env.example`(HUB_PORT·TZ·SESSION_SECRET·LOG_LEVEL·DEVICES_FILE) + `devices.example.json`(4대 allowlist, 실 tailnet 반영)
 - **Exit:** 폰 홈화면 앱에서 빈 PWA 셸이 HTTPS로 뜬다. — **달성 ✅** (폰 홈화면 설치 확인).
@@ -33,7 +33,7 @@
 - **Exit:** PIN 넣고 언락 → 탭바 있는 다크 셸. 틀린 PIN은 차단된다. — 코드/로컬 ✅, **허브 배포+HUB_PIN 설정+폰 확인 남음**.
 
 ### v0.3 — React 프론트 이관 (인프라, 모듈 가로지름)
-> `pwa/`(수기 HTML/CSS/JS) → `frontend/`(Vite + React + TS SPA). 백엔드/인증 로직 불변. 계획: `~/.gstack/.../a1234-v0.3-react-migration-plan-20260701.md`.
+> `pwa/`(수기 HTML/CSS/JS) → `frontend/`(Vite + React + TS SPA). 백엔드/인증 로직 불변. 계획: `~/.gstack/.../<user>-v0.3-react-migration-plan-20260701.md`.
 - [x] Vite+React+TS 스캐폴드 · Router v6 탭 라우팅 · CSS Modules + `tokens.css`(DESIGN 변수 단일소스)
 - [x] **AppShell 100dvh 그리드**(header/스크롤 콘텐츠/TabBar) — 탭바를 iOS home indicator 위로 → **iPhone 16 Pro safe-area 버그 수정**
 - [x] Unlock 커스텀 키패드(입력필드 없음) + 전체 비주얼 상태(idle/submitting/wrong shake/lockout/no-pin/success) · auth 상태머신(checking 스플래시) · `lib/api` 전역 401 게이트
