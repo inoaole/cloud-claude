@@ -23,6 +23,17 @@ export function openDb(file) {
     );
     CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts_device);
     CREATE INDEX IF NOT EXISTS idx_events_device_kind ON events(device_id, kind);
+    CREATE INDEX IF NOT EXISTS idx_events_kind_ts ON events(kind, ts_device);
+
+    -- One-line evening reflections (Sprint 6). MUTABLE (edited in place) — deliberately a
+    -- separate table so the events log stays append-only observations. Kept forever.
+    CREATE TABLE IF NOT EXISTS notes (
+      date       TEXT PRIMARY KEY,   -- local date YYYY-MM-DD (one line per day of MY life)
+      tz         TEXT NOT NULL,      -- tz the note was written in (metadata, not part of the key)
+      text       TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
   return db;
 }

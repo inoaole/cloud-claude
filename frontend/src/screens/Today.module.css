@@ -1,0 +1,108 @@
+/* Today — A/Journal reading-first. Calm, dark, honest-quiet: muted mono status language,
+   no alarm colors (offline is information, not an emergency). Composer pinned at the bottom. */
+
+.screen {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.scroll {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 4px var(--gutter) 12px;
+}
+
+.date {
+  font-family: var(--ui);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--t1);
+  margin: 10px 2px 2px;
+}
+
+/* Status line: mono muted + a hollow dot. Distinct shades, never red. */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--t4);
+  margin: 10px 2px 4px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid var(--t3);
+  display: inline-block;
+  flex: none;
+}
+.offline { color: var(--t3); }
+.offline .dot { border-style: dashed; }
+.degraded { color: var(--t2); }
+.degraded .dot { border-color: var(--t2); }
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* The ~estimate affordance: data-chip mono, quiet. */
+.pulse {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--t4);
+  text-align: center;
+  margin: 18px 0 6px;
+}
+
+.hint {
+  text-align: center;
+  color: var(--t4);
+  font-size: 14px;
+  padding: 48px 20px 12px;
+}
+
+.center { display: flex; flex-direction: column; align-items: center; }
+
+.retry {
+  display: block;
+  margin: 8px auto 0;
+  padding: 10px 22px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 15px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.retry:active { background: var(--raised); }
+
+.composerWrap { position: relative; }
+
+/* The quiet check: appears, breathes, fades. No toast. */
+.savedCheck {
+  position: absolute;
+  top: -26px;
+  right: var(--gutter);
+  color: var(--accent);
+  font-size: 15px;
+  animation: fadeInOut 2s ease forwards;
+  pointer-events: none;
+}
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  15% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.saveError {
+  font-size: 12px;
+  color: var(--t2);
+  margin: 0 var(--gutter) 4px;
+}

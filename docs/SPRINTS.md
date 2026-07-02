@@ -81,10 +81,16 @@
 - **Exit(v1a 충족):** MacBook Pro 커밋이 허브 타임라인에 실제로 쌓임, 재시작·재전송해도 중복 없음(87 유닛 + e2e 실증). 세션 활동은 v1b.
 
 ### Sprint 6 — Today (저녁 회고 PWA)
-- [ ] `GET /rollup?date=`(로컬 TZ) — 하루 Sessions/Commits 유도, 지속시간은 **추정(`~`)** 표기
-- [ ] Today 화면(A/Journal): Sessions·Commits 활동 카드 + 한 줄 회고 컴포저(`POST /note`) + 저장 시 조용한 체크
-- [ ] 상태 언어: quiet day(무활동) vs "no data — offline"(heartbeat 공백, hysteresis) 시각 구분
-- [ ] 늦은 이벤트 → 해당 로컬 날짜 롤업 재계산; retention 90d raw/롤업 영구 + grace window
+플랜 eng-review + codex 완료(2026-07-02, `feature/v0.8.0/today-reflection`). Sessions 카드는 v1b
+(session_observed) 이후 — 가짜 자리 표시 없음(honest-quiet).
+- [x] `GET /rollup?date=&tz=`(로컬 TZ, 클라이언트 tz 전달) — Commits(author-day, repo·기기 dedupe) +
+  Day pulse(디바이스별 집계), 지속시간은 **추정(`~`)** 표기. on-read 유도 → 늦은 이벤트 자동 반영
+- [x] Today 화면(A/Journal): Commits 활동 카드 + `~active` pulse 라인 + 한 줄 회고 컴포저(`POST /note`
+  upsert, 하루 1줄) + 저장 시 조용한 체크. 자정 넘김 시 focus에서 날짜 재계산
+- [x] 상태 언어: quiet day vs "no data — offline"(heartbeat 공백 15분 hysteresis, ts_hub 기준) vs
+  "sensor issue"(git 스캔 실패가 quiet로 위장 못 함) + 브라우저 오프라인 배너 — 전부 시각 구분
+- [~] 늦은 이벤트 → on-read라 자동 재계산(캐시 없음). **retention purge + `day_rollups` 영구 테이블은
+  한 쌍으로 Sprint 7로 이동** (codex P1: 퍼지+캐시없음 = "rollups forever" 모순; 첫 퍼지 대상 ~97일 후)
 - **Exit:** 7일 연속 저녁에 열면 오늘 실제 한 일 자동 요약 + 한 줄 회고. 자던/오프라인도 정직하게 구분.
 
 ---
@@ -92,6 +98,8 @@
 ## Module 3 — v1 마감
 
 ### Sprint 7 — 폴리시 + QA + 보안 검증 + 배포
+- [ ] **retention 한 쌍(Sprint 6에서 이월):** `day_rollups` 영구 요약 테이블(퍼지 전 적재) + raw 90d+7d
+  grace 퍼지 잡 — 함께 출하해야 "rollups forever" 유지 (플랜 D6)
 - [ ] design-review 이월분: 탭바 구분 글리프 · 디스클로저 후행엣지 통일 · 최소 뮤트 텍스트 대비 · 프로젝트 팔레트/heat 토큰화
 - [ ] QA(`/qa`): 두 평면 크리티컬 패스 + 보안 테스트(미인증/bad-Origin WS 거부, 미등록 기기 거부, PIN 차단)
 - [ ] 허브 배포(Oracle Ubuntu) + 각 기기 Tailscale SSH ACL 설정(허브=비루트·no-sudo, 4대만)

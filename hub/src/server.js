@@ -24,6 +24,8 @@ import {
 import { assertCwd, buildAgentCommand, mapEvent, wrapUserMessage } from './agent.js';
 import { openDb, insertEvents, queryTimeline } from './db.js';
 import { handleIngest } from './ingest.js';
+import { buildRollup } from './rollup.js';
+import { handleSaveNote, getNote } from './notes.js';
 
 // Live agent bridges keyed by session id: { child, ws, buf, lineBuf, graceTimer }.
 const agentBridges = new Map();
@@ -153,6 +155,31 @@ app.get('/timeline', requireAuth, (req, res) => {
     audit('timeline_error', { msg: String(err?.message || err) });
     res.status(500).json({ error: 'timeline_failed' });
   }
+});
+
+// ── Hub plane: Today rollup + reflection note (Sprint 6) ──────────────────────
+// GET /rollup?date=YYYY-MM-DD&tz=<IANA> — the day's summary, derived on read. The note is
+// embedded so Today renders from ONE fetch. tz falls back to the hub config only.
+app.get('/rollup', requireAuth, (req, res) => {
+  try {
+    const date = String(req.query.date || '');
+    const tz = String(req.query.tz || config.tz);
+    const rollup = buildRollup(db, { date, tz, now: Date.now() });
+    rollup.note = getNote(db, date);
+    res.json(rollup);
+  } catch (err) {
+    const msg = String(err?.message || err);
+    if (msg === 'bad date' || msg === 'bad tz') return res.status(400).json({ error: msg.replace(' ', '_') });
+    audit('rollup_error', { msg });
+    res.status(500).json({ error: 'rollup_failed' });
+  }
+});
+
+// POST /note {date, tz, text} — upsert today's one line (PIN path; /ingest still rejects notes).
+app.post('/note', requireAuth, (req, res) => {
+  const r = handleSaveNote(db, req.body);
+  if (r.status !== 200) audit('note_reject', { reason: r.body?.error });
+  res.status(r.status).json(r.body);
 });
 
 // ── Agent sessions (Device plane, v0.6) ───────────────────────────────────────
