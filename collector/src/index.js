@@ -15,12 +15,14 @@ function log(event, extra = {}) {
 /** Build this run's new events (commit_seen per new commit + one heartbeat). Mutates state.repos. */
 export async function collectEvents(cfg, state, runStarted) {
   const events = [];
+  let reposFailed = 0; // sensor health: a broken git scan must not masquerade as a quiet day
   for (const repo of cfg.repos) {
     let scan;
     try {
       scan = await gitScan(repo.path, state.repos[repo.id]);
     } catch (err) {
       log('git_scan_error', { repo: repo.id, msg: String(err?.message || err) });
+      reposFailed += 1;
       continue; // skip this repo this run; watermark unchanged
     }
     if (scan.rebaselined) log('git_rebaselined', { repo: repo.id, head: scan.head });
@@ -38,13 +40,14 @@ export async function collectEvents(cfg, state, runStarted) {
   }
 
   // Heartbeat: id keyed on this run's start ms (idempotent across THIS run's outbox retries).
+  // Carries sensor health so the hub can tell "quiet day" from "scanner broken" (Sprint 6).
   events.push({
     event_id: heartbeatEventId(cfg.deviceId, runStarted),
     device_id: cfg.deviceId,
     kind: 'heartbeat',
     ts_device: runStarted,
     schema_version: SCHEMA_VERSION,
-    payload: { intervalSec: cfg.intervalSec },
+    payload: { intervalSec: cfg.intervalSec, reposOk: cfg.repos.length - reposFailed, reposFailed },
   });
 
   // Validate before enqueue (fail fast) — a bad event never reaches the outbox.

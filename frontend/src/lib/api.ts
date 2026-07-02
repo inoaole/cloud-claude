@@ -157,3 +157,30 @@ export async function getHealth(): Promise<Health> {
     return { ok: false };
   }
 }
+
+// ── Today: day rollup + reflection note (Sprint 6) ──────────────────────────
+export interface RollupCommit { sha: string; subject: string; authorTs: number }
+export interface RollupRepo { repoId: string; commits: RollupCommit[] }
+export interface RollupPulseDevice { deviceId: string; beats: number; first: number; last: number }
+export type RollupStatus = 'normal' | 'quiet' | 'offline';
+export interface Rollup {
+  date: string;
+  tz: string;
+  status: RollupStatus;
+  sensorDegraded: boolean;
+  commitCount: number;
+  commits: RollupRepo[];
+  pulse: { devices: RollupPulseDevice[]; beats: number; first: number | null; last: number | null };
+  note: { date: string; text: string } | null;
+}
+
+export async function getRollup(date: string, tz: string): Promise<Rollup> {
+  const res = await apiFetch(`/rollup?date=${encodeURIComponent(date)}&tz=${encodeURIComponent(tz)}`);
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  return (await res.json()) as Rollup;
+}
+
+export async function saveNote(date: string, tz: string, text: string): Promise<void> {
+  const res = await apiFetch('/note', { method: 'POST', body: JSON.stringify({ date, tz, text }) });
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+}
