@@ -4,19 +4,19 @@ import { findPeer, probeDevice, probeAll } from './devices.js';
 
 // A fake `tailscale status --json` with one online peer + one offline peer.
 const status = {
-  Self: { HostName: 'cloud-claude-hub', DNSName: 'cloud-claude-hub.tail.ts.net.', TailscaleIPs: ['100.76.104.123'], Online: true },
+  Self: { HostName: 'cloud-claude-hub', DNSName: 'cloud-claude-hub.tail.ts.net.', TailscaleIPs: ['100.64.0.1'], Online: true },
   Peer: {
-    a: { HostName: 'jonghyun--macbookpro', DNSName: 'jonghyun--macbookpro.tail.ts.net.', TailscaleIPs: ['100.66.78.59'], Online: true },
+    a: { HostName: 'my-macbook', DNSName: 'my-macbook.tail.ts.net.', TailscaleIPs: ['100.64.0.7'], Online: true },
     b: { HostName: 'desktop-de6a81o', DNSName: 'desktop-de6a81o.tail.ts.net.', TailscaleIPs: ['100.99.1.2'], Online: false },
   },
 };
 
-const mac = { id: 'macbook-pro', label: 'MacBook Pro', os: 'macos', tailnet: 'jonghyun--macbookpro', sshHost: '100.66.78.59', enabled: true };
+const mac = { id: 'macbook-pro', label: 'MacBook Pro', os: 'macos', tailnet: 'my-macbook', sshHost: '100.64.0.7', enabled: true };
 const hub = { id: 'hub', label: 'Ubuntu hub', os: 'linux', tailnet: 'cloud-claude-hub', role: 'hub', enabled: true };
 
 test('findPeer matches by MagicDNS name and by IP', () => {
-  assert.equal(findPeer(mac, status).HostName, 'jonghyun--macbookpro');
-  assert.equal(findPeer({ sshHost: '100.66.78.59' }, status).HostName, 'jonghyun--macbookpro');
+  assert.equal(findPeer(mac, status).HostName, 'my-macbook');
+  assert.equal(findPeer({ sshHost: '100.64.0.7' }, status).HostName, 'my-macbook');
   assert.equal(findPeer({ tailnet: 'nope' }, status), null);
 });
 

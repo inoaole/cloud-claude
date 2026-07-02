@@ -25,7 +25,7 @@ architecture, and a proven infrastructure spike. Design artifacts live under
 - **Sprints:** `docs/SPRINTS.md` rewritten around modules (M0 foundation → M1 Device plane
   → M2 Hub plane → M3 polish/QA/deploy).
 - **INFRA SPIKE — proven end to end on real hardware:**
-  - Hub (Oracle Ubuntu, `cloud-claude-hub` 100.76.104.123) registered on Tailscale (inoaole).
+  - Hub (Oracle Ubuntu, `cloud-claude-hub` <tailnet-ip>) registered on Tailscale (inoaole).
   - Finding: macOS App Store Tailscale can't run the SSH server → **Mac targets = Remote
     Login + classic SSH over tailnet + a hub key** (Tailscale-SSH-no-keys holds for Linux only).
   - Built a mini node-pty + ws server on the hub → **phone (iOS Safari) → hub WS → ssh →

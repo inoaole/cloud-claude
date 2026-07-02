@@ -1,10 +1,10 @@
 {
   "_comment": "Copy to ~/.cloud-claude-collector/config.json (LOCAL, never committed) and fill in. deviceId must match an id in the hub's devices.json; ingestToken must match that device's ingestToken. Each repo gets a STABLE id used in event ids — keep it constant even if the path moves.",
-  "hubUrl": "https://cloud-claude-hub.tail978fc3.ts.net",
+  "hubUrl": "https://your-hub.your-tailnet.ts.net",
   "deviceId": "macbook-pro",
   "ingestToken": "REPLACE_WITH_PER_DEVICE_TOKEN",
   "intervalSec": 180,
   "repos": [
-    { "id": "cloud-claude", "path": "/Users/a1234/Documents/side-project/cloud_claude" }
+    { "id": "cloud-claude", "path": "/Users/you/code/my-repo" }
   ]
 }

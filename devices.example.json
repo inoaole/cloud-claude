@@ -5,9 +5,9 @@
       "id": "macbook-pro",
       "label": "MacBook Pro",
       "os": "macos",
-      "tailnet": "jonghyun--macbookpro",
-      "sshHost": "100.66.78.59",
-      "sshUser": "a1234",
+      "tailnet": "my-macbook",
+      "sshHost": "100.64.0.7",
+      "sshUser": "you",
       "connect": "ssh",
       "enabled": true,
       "ingestToken": "REPLACE_WITH_openssl_rand_hex_32"
@@ -33,7 +33,7 @@
       "id": "desktop",
       "label": "Desktop",
       "os": "windows",
-      "tailnet": "desktop-de6a81o",
+      "tailnet": "my-desktop",
       "connect": "ssh",
       "enabled": false,
       "_note": "Windows (no tmux) — out of scope for v1"

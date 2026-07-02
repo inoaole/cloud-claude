@@ -5,12 +5,12 @@ import { createSession, listSessions, getSession, setStatus, removeSession, _cle
 beforeEach(() => _clear());
 
 test('createSession: defaults + agent kind + starting status', () => {
-  const s = createSession({ deviceId: 'macbook-pro', cwd: '/Users/a1234/proj' }, 1000);
+  const s = createSession({ deviceId: 'macbook-pro', cwd: '/Users/dev/proj' }, 1000);
   assert.equal(s.deviceId, 'macbook-pro');
   assert.equal(s.kind, 'agent');
   assert.equal(s.status, 'starting');
-  assert.equal(s.cwd, '/Users/a1234/proj');
-  assert.equal(s.title, '/Users/a1234/proj'); // falls back to cwd
+  assert.equal(s.cwd, '/Users/dev/proj');
+  assert.equal(s.title, '/Users/dev/proj'); // falls back to cwd
   assert.ok(s.id && getSession(s.id));
 });
 

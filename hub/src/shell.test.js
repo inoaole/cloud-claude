@@ -7,10 +7,10 @@ test('buildShellCommand: hub → local login bash', () => {
 });
 
 test('buildShellCommand: Mac → ssh + hub key + bash -l (no -tt)', () => {
-  const c = buildShellCommand({ sshUser: 'a1234', sshHost: '100.66.78.59', connect: 'ssh' }, { hubKeyPath: '/k' });
+  const c = buildShellCommand({ sshUser: 'dev', sshHost: '100.64.0.7', connect: 'ssh' }, { hubKeyPath: '/k' });
   assert.equal(c.file, 'ssh');
   assert.ok(!c.args.includes('-tt'), 'no pty for command-block mode');
-  assert.deepEqual(c.args.slice(-3), ['a1234@100.66.78.59', 'bash', '-l']);
+  assert.deepEqual(c.args.slice(-3), ['dev@100.64.0.7', 'bash', '-l']);
 });
 
 test('buildShellCommand: rejects arg-injection', () => {

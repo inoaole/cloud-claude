@@ -27,14 +27,14 @@ test('buildCommand: hub → local tmux, no ssh hop', () => {
 
 test('buildCommand: Mac → classic ssh with hub key + absolute tmux, fixed session', () => {
   const c = buildCommand(
-    { id: 'macbook-pro', sshUser: 'a1234', sshHost: '100.66.78.59', connect: 'ssh' },
+    { id: 'macbook-pro', sshUser: 'dev', sshHost: '100.64.0.7', connect: 'ssh' },
     { hubKeyPath: '/home/ubuntu/.ssh/id_cloud_claude', macTmuxPath: '/opt/homebrew/bin/tmux', session: 'phone' },
   );
   assert.equal(c.file, 'ssh');
   assert.ok(c.args.includes('-i') && c.args.includes('/home/ubuntu/.ssh/id_cloud_claude'));
   assert.equal(c.args.at(-5), '/opt/homebrew/bin/tmux'); // tmux, then: new -A -s phone
   assert.deepEqual(c.args.slice(-3), ['-A', '-s', 'phone']);
-  assert.equal(c.args.at(-6), 'a1234@100.66.78.59'); // target precedes tmux
+  assert.equal(c.args.at(-6), 'dev@100.64.0.7'); // target precedes tmux
 });
 
 test('buildCommand: Linux peer → tailscale ssh', () => {
