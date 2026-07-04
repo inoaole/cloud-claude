@@ -12,10 +12,11 @@ export function loadState(file) {
     const s = JSON.parse(readFileSync(file, 'utf8'));
     return {
       repos: s.repos && typeof s.repos === 'object' ? s.repos : {},
+      sessions: s.sessions && typeof s.sessions === 'object' ? s.sessions : {},
       outbox: Array.isArray(s.outbox) ? s.outbox : [],
     };
   } catch {
-    return { repos: {}, outbox: [] };
+    return { repos: {}, sessions: {}, outbox: [] };
   }
 }
 
@@ -24,6 +25,6 @@ export function saveState(file, state) {
   mkdirSync(path.dirname(file), { recursive: true });
   const outbox = state.outbox.length > OUTBOX_MAX ? state.outbox.slice(-OUTBOX_MAX) : state.outbox;
   const tmp = `${file}.tmp`;
-  writeFileSync(tmp, JSON.stringify({ repos: state.repos, outbox }, null, 2));
+  writeFileSync(tmp, JSON.stringify({ repos: state.repos, sessions: state.sessions ?? {}, outbox }, null, 2));
   renameSync(tmp, file); // atomic on POSIX — readers see old-or-new, never a partial file
 }

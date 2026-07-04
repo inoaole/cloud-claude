@@ -21,11 +21,11 @@ test('valid commit_seen + heartbeat pass', () => {
   assert.equal(validateEvent(goodHeartbeat(), V1_KINDS), null);
 });
 
-test('rejects non-v1a kinds when restricted to V1_KINDS', () => {
-  const e = { ...goodCommit(), kind: 'session_observed' };
+test('rejects kinds outside V1_KINDS (note is PIN-path-only, never device-emitted)', () => {
+  const e = { ...goodCommit(), kind: 'note' };
   assert.match(validateEvent(e, V1_KINDS), /bad kind/);
-  // session_observed is a known kind under the full set, though (still allowed there):
-  assert.ok(KINDS.includes('session_observed'));
+  // note is still a known kind in the full set:
+  assert.ok(KINDS.includes('note'));
 });
 
 test('rejects wrong schema_version', () => {
@@ -58,4 +58,35 @@ test('heartbeat: event_id must be keyed on ts_device', () => {
 
 test('non-object → error', () => {
   assert.match(validateEvent(null, V1_KINDS), /not an object/);
+});
+
+// ── session_observed (v1b) ────────────────────────────────────────────────────
+import { sessionEventId } from './schema.js';
+
+const goodSession = () => ({
+  event_id: sessionEventId(DEV, 'claude', 29031, 1700000000000),
+  device_id: DEV, kind: 'session_observed', ts_device: 1700000000000, schema_version: SCHEMA_VERSION,
+  payload: { tool: 'claude', pid: 29031, cwd: 'my-project', started: 1700000000000, ended: 1700003600000 },
+});
+
+test('v1b: valid session_observed passes (now in V1_KINDS)', () => {
+  assert.equal(validateEvent(goodSession(), V1_KINDS), null);
+  const nullCwd = goodSession(); nullCwd.payload = { ...nullCwd.payload, cwd: null };
+  assert.equal(validateEvent(nullCwd, V1_KINDS), null);
+});
+
+test('v1b: rejects unknown tool, bad times, full-path cwd', () => {
+  let e = goodSession(); e.payload = { ...e.payload, tool: 'vim' };
+  assert.match(validateEvent(e, V1_KINDS), /bad tool/);
+  e = goodSession(); e.payload = { ...e.payload, ended: e.payload.started - 1 };
+  assert.match(validateEvent(e, V1_KINDS), /bad ended/);
+  e = goodSession(); e.payload = { ...e.payload, cwd: '/Users/dev/proj' }; // path leak guard
+  assert.match(validateEvent(e, V1_KINDS), /basename/);
+});
+
+test('v1b: id + ts_device integrity enforced', () => {
+  let e = goodSession(); e.ts_device = 123;
+  assert.match(validateEvent(e, V1_KINDS), /ts_device must equal/);
+  e = goodSession(); e.event_id = sessionEventId(DEV, 'claude', 999, 1700000000000);
+  assert.match(validateEvent(e, V1_KINDS), /does not match/);
 });

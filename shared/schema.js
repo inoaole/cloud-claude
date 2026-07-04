@@ -13,18 +13,24 @@
 
 export const SCHEMA_VERSION = 1;
 
-// Every kind the timeline knows about. session_observed/note land later (v1b / Sprint 6).
+// Every kind the timeline knows about. note lands with a later module.
 export const KINDS = ['commit_seen', 'session_observed', 'heartbeat', 'note'];
 
-// The subset /ingest ACCEPTS in v1a. Anything else is rejected so we don't expose untested
-// public API surface before the collector actually emits it.
-export const V1_KINDS = ['commit_seen', 'heartbeat'];
+// The subset /ingest ACCEPTS. Kinds join this list only when a collector actually emits them
+// (no untested public API surface). v1a: commit_seen + heartbeat. v1b: + session_observed.
+export const V1_KINDS = ['commit_seen', 'heartbeat', 'session_observed'];
+
+// Tools the session scanner recognizes (v1b).
+export const SESSION_TOOLS = ['claude', 'codex', 'tmux'];
 
 export function commitEventId(deviceId, repoId, sha) {
   return `commit:${deviceId}:${repoId}:${sha}`;
 }
 export function heartbeatEventId(deviceId, runStartedMs) {
   return `heartbeat:${deviceId}:${runStartedMs}`;
+}
+export function sessionEventId(deviceId, tool, pid, startedMs) {
+  return `session:${deviceId}:${tool}:${pid}:${startedMs}`;
 }
 
 const isStr = (v) => typeof v === 'string' && v.length > 0;
@@ -64,8 +70,24 @@ export function validateEvent(e, allowedKinds = KINDS) {
       }
       return null;
     }
+    case 'session_observed': {
+      // Emitted ONCE when the session ENDS (poll-diff observed the pid vanish).
+      // ts_device = started ms → a session belongs to the day the work BEGAN.
+      const p = e.payload;
+      if (!SESSION_TOOLS.includes(p.tool)) return `session_observed: bad tool: ${p.tool}`;
+      if (!isNum(p.pid) || p.pid <= 0) return 'session_observed: bad pid';
+      if (!isNum(p.started) || p.started <= 0) return 'session_observed: bad started';
+      if (!isNum(p.ended) || p.ended < p.started) return 'session_observed: bad ended';
+      // cwd is a BASENAME or null — never a full path (privacy: no machine layout on the wire).
+      if (p.cwd !== null && (!isStr(p.cwd) || p.cwd.includes('/'))) return 'session_observed: cwd must be a basename or null';
+      if (e.ts_device !== p.started) return 'session_observed: ts_device must equal payload.started';
+      if (e.event_id !== sessionEventId(e.device_id, p.tool, p.pid, p.started)) {
+        return 'session_observed: event_id does not match payload';
+      }
+      return null;
+    }
     default:
-      // session_observed / note: not emitted in v1a; deep validation lands with them.
+      // note: not device-emitted (the PIN path owns it); deep validation lands with it.
       return null;
   }
 }

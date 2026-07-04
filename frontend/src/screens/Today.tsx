@@ -29,6 +29,15 @@ function hhmm(ms: number, tz: string): string {
   return new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ms));
 }
 
+/** `~2h 10m` — always the estimate affordance: a poller observed snapshots, not exact times. */
+function approxDuration(ms: number): string {
+  const mins = Math.max(1, Math.round(ms / 60_000));
+  if (mins < 60) return `~${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `~${h}h ${m}m` : `~${h}h`;
+}
+
 /** Honest status line under the date. Muted mono + dot — informational, never alarm-colored. */
 function StatusLine({ rollup }: { rollup: Rollup }) {
   if (rollup.status === 'offline') {
@@ -125,6 +134,18 @@ export function Today() {
         {state.phase === 'ready' && (
           <>
             <StatusLine rollup={state.rollup} />
+
+            {state.rollup.sessions.length > 0 && (
+              <Group header="Sessions">
+                {state.rollup.sessions.map((s, i) => (
+                  <Cell
+                    key={`${i}-${s.tool}-${s.started}-${s.deviceId}`}
+                    title={<>{s.tool} <span className={styles.mono}>{approxDuration(s.durationMs)}</span></>}
+                    subtitle={<span className={styles.mono}>{s.cwd ?? s.deviceId} · {hhmm(s.started, tz)}–{hhmm(s.ended, tz)}</span>}
+                  />
+                ))}
+              </Group>
+            )}
 
             {state.rollup.commits.map((repo) => (
               <Group key={repo.repoId} header={repo.repoId}>

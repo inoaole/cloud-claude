@@ -113,6 +113,17 @@ export function buildRollup(db, { date, tz, now }) {
   const commits = [...byRepo.entries()].map(([repoId, list]) => ({ repoId, commits: list }));
   const commitCount = seen.size;
 
+  // Sessions (v1b) — emitted on END with ts_device = started, so the day query attributes a
+  // session to the day the work began. Durations are poll-granularity estimates (~).
+  const sessions = db.prepare(`
+    SELECT device_id, payload FROM events
+    WHERE kind = 'session_observed' AND ts_device >= ? AND ts_device < ?
+    ORDER BY ts_device DESC
+  `).all(startMs, endMs).map((r) => {
+    const p = JSON.parse(r.payload);
+    return { tool: p.tool, cwd: p.cwd, started: p.started, ended: p.ended, durationMs: p.ended - p.started, deviceId: r.device_id };
+  });
+
   // Liveness — ts_hub of the most recent heartbeat EVER (not just today): "is the collector
   // reporting NOW". Device clocks are untrusted for liveness (D8).
   // NOTE(fan-out): this reads the latest heartbeat ACROSS devices — fine for v1's single
@@ -127,9 +138,10 @@ export function buildRollup(db, { date, tz, now }) {
   // Status — "today" judged in the REQUEST's tz, never the hub clock (review fold, D3).
   // Offline is a NOW concept: past dates never claim it (design: not observed ≠ bug).
   const isToday = todayInTz(now, tz) === date;
+  const hadActivity = commitCount > 0 || sessions.length > 0; // sessions count as a real day too
   let status;
   if (isToday && !alive) status = 'offline';
-  else status = commitCount > 0 ? 'normal' : 'quiet';
+  else status = hadActivity ? 'normal' : 'quiet';
 
   // Sensor health — a broken git scan must not masquerade as a quiet day (D8/codex).
   let sensorDegraded = false;
@@ -138,5 +150,5 @@ export function buildRollup(db, { date, tz, now }) {
     sensorDegraded = Number(p.reposFailed) > 0;
   }
 
-  return { date, tz, status, sensorDegraded, commitCount, commits, pulse };
+  return { date, tz, status, sensorDegraded, commitCount, commits, sessions, pulse };
 }

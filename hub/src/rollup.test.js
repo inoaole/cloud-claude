@@ -172,3 +172,43 @@ test('D5: a commit authored yesterday but flushed today lands on YESTERDAY', () 
   assert.equal(today.commitCount, 0);
   assert.equal(yday.commitCount, 1); // on-read recompute puts it on its true day
 });
+
+// ── sessions (v1b) ────────────────────────────────────────────────────────────
+import { sessionEventId } from '../../shared/schema.js';
+
+function session(dev, tool, pid, started, ended, cwd = 'proj') {
+  return {
+    event_id: sessionEventId(dev, tool, pid, started), device_id: dev, kind: 'session_observed',
+    ts_device: started, schema_version: SCHEMA_VERSION,
+    payload: { tool, pid, cwd, started, ended },
+  };
+}
+
+test('v1b: sessions land in the rollup with durations, newest first', () => {
+  const db = openDb(':memory:');
+  insertEvents(db, [
+    session('mbp', 'claude', 100, T(10), T(12)),
+    session('mbp', 'codex', 200, T(14), T(14.5)),
+    hb('mbp', T(19.9)),
+  ], NOW);
+  const r = buildRollup(db, { date: DATE, tz: TZ, now: NOW });
+  assert.equal(r.sessions.length, 2);
+  assert.equal(r.sessions[0].tool, 'codex'); // newest started first
+  assert.equal(r.sessions[0].durationMs, 0.5 * 3600_000);
+  assert.equal(r.sessions[1].cwd, 'proj');
+});
+
+test('v1b: a session-only day is normal, not quiet', () => {
+  const db = openDb(':memory:');
+  insertEvents(db, [session('mbp', 'claude', 100, T(10), T(11)), hb('mbp', T(19.9))], NOW);
+  const r = buildRollup(db, { date: DATE, tz: TZ, now: NOW });
+  assert.equal(r.status, 'normal'); // agent work with no commits is still a real day
+});
+
+test('v1b: session belongs to the day it STARTED (cross-midnight)', () => {
+  const db = openDb(':memory:');
+  const [yStart] = localDayRange('2026-07-01', TZ);
+  insertEvents(db, [session('mbp', 'claude', 100, yStart + 23 * 3600_000, T(1))], NOW); // 23:00→01:00
+  assert.equal(buildRollup(db, { date: '2026-07-01', tz: TZ, now: NOW }).sessions.length, 1);
+  assert.equal(buildRollup(db, { date: DATE, tz: TZ, now: NOW }).sessions.length, 0);
+});

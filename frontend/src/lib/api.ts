@@ -162,6 +162,14 @@ export async function getHealth(): Promise<Health> {
 export interface RollupCommit { sha: string; subject: string; authorTs: number }
 export interface RollupRepo { repoId: string; commits: RollupCommit[] }
 export interface RollupPulseDevice { deviceId: string; beats: number; first: number; last: number }
+export interface RollupSession {
+  tool: 'claude' | 'codex' | 'tmux';
+  cwd: string | null;
+  started: number;
+  ended: number;
+  durationMs: number;
+  deviceId: string;
+}
 export type RollupStatus = 'normal' | 'quiet' | 'offline';
 export interface Rollup {
   date: string;
@@ -170,6 +178,7 @@ export interface Rollup {
   sensorDegraded: boolean;
   commitCount: number;
   commits: RollupRepo[];
+  sessions: RollupSession[];
   pulse: { devices: RollupPulseDevice[]; beats: number; first: number | null; last: number | null };
   note: { date: string; text: string } | null;
 }

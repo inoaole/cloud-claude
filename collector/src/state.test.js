@@ -10,22 +10,22 @@ function tmp() { dir = mkdtempSync(path.join(os.tmpdir(), 'cc-state-')); return 
 afterEach(() => dir && rmSync(dir, { recursive: true, force: true }));
 
 test('missing file → empty state', () => {
-  assert.deepEqual(loadState(tmp()), { repos: {}, outbox: [] });
+  assert.deepEqual(loadState(tmp()), { repos: {}, sessions: {}, outbox: [] });
 });
 
 test('save then load round-trips; no leftover tmp file', () => {
   const file = tmp();
-  saveState(file, { repos: { 'cloud-claude': 'abc' }, outbox: [{ event_id: 'e1' }] });
-  assert.deepEqual(loadState(file), { repos: { 'cloud-claude': 'abc' }, outbox: [{ event_id: 'e1' }] });
+  saveState(file, { repos: { 'cloud-claude': 'abc' }, sessions: {}, outbox: [{ event_id: 'e1' }] });
+  assert.deepEqual(loadState(file), { repos: { 'cloud-claude': 'abc' }, sessions: {}, outbox: [{ event_id: 'e1' }] });
   assert.ok(existsSync(file));
   assert.ok(!readdirSync(dir).some((f) => f.endsWith('.tmp'))); // tmp renamed away
 });
 
 test('corrupt json → empty state (never crash the run)', () => {
   const file = tmp();
-  saveState(file, { repos: {}, outbox: [] });
+  saveState(file, { repos: {}, sessions: {}, outbox: [] });
   writeFileSync(file, '{ not json');
-  assert.deepEqual(loadState(file), { repos: {}, outbox: [] });
+  assert.deepEqual(loadState(file), { repos: {}, sessions: {}, outbox: [] });
 });
 
 test('outbox trimmed to the newest OUTBOX_MAX', () => {

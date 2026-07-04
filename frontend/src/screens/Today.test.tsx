@@ -21,6 +21,7 @@ const base: Rollup = {
       { sha: 'def5678abc', subject: 'fix: tz boundary', authorTs: 1782980000000 },
     ],
   }],
+  sessions: [],
   pulse: { devices: [{ deviceId: 'macbook-pro', beats: 47, first: 1782950000000, last: 1782995000000 }], beats: 47, first: 1782950000000, last: 1782995000000 },
   note: null,
 };
@@ -39,6 +40,22 @@ describe('Today', () => {
     expect(screen.getByText('cloud-claude')).toBeInTheDocument();
     expect(screen.getByText(/~active .+–.+ · 47 beats/)).toBeInTheDocument();
     expect(screen.queryByText('quiet day')).not.toBeInTheDocument(); // normal day = no status line
+  });
+
+  it('sessions render above commits with ~duration and cwd (v1b)', async () => {
+    mockRollup.mockResolvedValue({
+      ...base,
+      sessions: [
+        { tool: 'claude', cwd: 'cloud_claude', started: 1782980000000, ended: 1782987800000, durationMs: 7800000, deviceId: 'macbook-pro' },
+        { tool: 'tmux', cwd: null, started: 1782970000000, ended: 1782980000000, durationMs: 10000000, deviceId: 'macbook-pro' },
+      ],
+    });
+    render(<Today />);
+
+    expect(await screen.findByText('Sessions')).toBeInTheDocument();
+    expect(screen.getByText('~2h 10m')).toBeInTheDocument(); // the estimate affordance
+    expect(screen.getByText(/cloud_claude · \d{2}:\d{2}–\d{2}:\d{2}/)).toBeInTheDocument();
+    expect(screen.getByText(/macbook-pro · \d{2}:\d{2}/)).toBeInTheDocument(); // null cwd falls back to device
   });
 
   it('quiet day and offline are visually distinct states, not errors', async () => {

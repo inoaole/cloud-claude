@@ -6,6 +6,7 @@ import { SCHEMA_VERSION, commitEventId, heartbeatEventId, validateEvent, V1_KIND
 import { loadConfig, STATE_FILE } from './config.js';
 import { loadState, saveState } from './state.js';
 import { gitScan } from './git.js';
+import { observeSessions, diffSessions } from './scan.js';
 import { makePoster, flush } from './outbox.js';
 
 function log(event, extra = {}) {
@@ -39,6 +40,20 @@ export async function collectEvents(cfg, state, runStarted) {
     state.repos[repo.id] = scan.head; // advance the watermark
   }
 
+  // Session scan (v1b): poll-diff of claude/codex/tmux — a session's event is emitted once,
+  // when its pid vanishes. Scan errors degrade gracefully (no session events this run) and
+  // count toward sensor health rather than killing the run.
+  let sessionScanFailed = 0;
+  try {
+    const observed = await observeSessions();
+    const { events: ended, nextSessions } = diffSessions(state.sessions ?? {}, observed, cfg.deviceId, runStarted);
+    events.push(...ended);
+    state.sessions = nextSessions;
+  } catch (err) {
+    log('session_scan_error', { msg: String(err?.message || err) });
+    sessionScanFailed = 1; // keep state.sessions as-is; next run retries the diff
+  }
+
   // Heartbeat: id keyed on this run's start ms (idempotent across THIS run's outbox retries).
   // Carries sensor health so the hub can tell "quiet day" from "scanner broken" (Sprint 6).
   events.push({
@@ -47,7 +62,11 @@ export async function collectEvents(cfg, state, runStarted) {
     kind: 'heartbeat',
     ts_device: runStarted,
     schema_version: SCHEMA_VERSION,
-    payload: { intervalSec: cfg.intervalSec, reposOk: cfg.repos.length - reposFailed, reposFailed },
+    payload: {
+      intervalSec: cfg.intervalSec,
+      reposOk: cfg.repos.length - reposFailed,
+      reposFailed: reposFailed + sessionScanFailed, // a broken session scan is a sick sensor too
+    },
   });
 
   // Validate before enqueue (fail fast) — a bad event never reaches the outbox.
