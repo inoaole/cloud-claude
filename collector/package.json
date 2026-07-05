@@ -1,0 +1,12 @@
+{
+  "name": "cloud-claude-collector",
+  "private": true,
+  "version": "0.7.0",
+  "description": "Device-as-sensor collector — scans local git repos + heartbeat, pushes events to the hub /ingest. Runs periodically via launchd (fresh process each run, not resident).",
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test"
+  }
+}

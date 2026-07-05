@@ -1,0 +1,30 @@
+/* Sits in the grid's last row. Its own height + safe-area padding lifts the touch
+   targets ABOVE the iOS home indicator (the bug: the old fixed bar overlapped it). */
+.tabbar {
+  display: flex;
+  height: calc(var(--tabbar-h) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: #0e0e0f;
+  border-top: 1px solid var(--hair);
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  color: var(--t3);
+  text-decoration: none;
+}
+
+.tab.on { color: var(--accent); }
+
+.ic { width: 24px; height: 24px; }
+
+.label {
+  font-size: 10px;
+  letter-spacing: 0.2px;
+}

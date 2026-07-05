@@ -1,0 +1,49 @@
+# Secrets
+*.key
+*.key.pub
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
+!*.example.json
+
+# TS incremental build cache
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Build
+node_modules/
+*.zip
+
+# Hub-plane runtime data (SQLite timeline) — never committed
+data/
+*.db
+*.db-wal
+*.db-shm
+frontend/dist/
+frontend/dev-dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.vite/
+
+# Claude
+.claude/
+.gstack/
+
+# Legacy / unrelated-project files (kept on disk, never committed)
+legacy/

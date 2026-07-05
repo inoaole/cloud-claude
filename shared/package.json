@@ -1,0 +1,7 @@
+{
+  "name": "cloud-claude-shared",
+  "private": true,
+  "version": "0.7.0",
+  "description": "Shared event schema + validation, imported by both hub/ and collector/",
+  "type": "module"
+}

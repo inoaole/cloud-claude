@@ -1,0 +1,125 @@
+.chat {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr auto auto; /* transcript · chips · composer */
+  background: #000;
+}
+
+.transcript {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 12px var(--gutter) 4px;
+}
+
+.empty {
+  color: var(--t4);
+  font-size: 14px;
+  text-align: center;
+  padding: 48px 20px;
+}
+
+/* One command block (Warp command-block / Discord message feel). */
+.block {
+  margin-bottom: 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--card);
+}
+
+.cmd {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  color: var(--t1);
+  font: 400 14px var(--mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+  cursor: pointer;
+}
+.cmd:active { background: var(--raised); }
+.prompt { color: var(--accent); }
+
+.out {
+  margin: 0;
+  padding: 0 12px 8px;
+  color: var(--t2);
+  font: 400 13px var(--mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 340px;
+  overflow: auto;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--hair);
+  font: 400 12px var(--mono);
+}
+.running { color: var(--t3); }
+.ok { color: var(--t3); }
+.fail { color: var(--danger); }
+.dur { color: var(--t4); }
+
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px var(--gutter);
+  border-top: 1px solid var(--hair);
+  -webkit-overflow-scrolling: touch;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  padding: 0 12px;
+  min-height: 34px;
+  border: 1px solid var(--hair);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--t2);
+  font: 400 13px var(--mono);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip:active { background: var(--raised); }
+
+.composer {
+  display: flex;
+  gap: 8px;
+  padding: 8px var(--gutter) calc(var(--safe-bottom) + 8px);
+  border-top: 1px solid var(--hair);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--t1);
+  font: 400 16px var(--mono);
+}
+.input::placeholder { color: var(--t3); }
+.send {
+  flex: none;
+  min-height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.send:disabled { background: var(--card); color: var(--t3); cursor: default; }

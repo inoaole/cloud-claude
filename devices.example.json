@@ -1,0 +1,42 @@
+{
+  "_comment": "Copy to devices.json (gitignored) and fill in. Reflects the real tailnet (2026-07-01). Macs use classic SSH over the tailnet (App Store Tailscale can't run the Tailscale SSH server); Linux uses Tailscale SSH. ingestToken (optional, per-device) authorizes that device's collector for POST /ingest — generate with `openssl rand -hex 32`, keep it secret (this file is gitignored).",
+  "devices": [
+    {
+      "id": "macbook-pro",
+      "label": "MacBook Pro",
+      "os": "macos",
+      "tailnet": "my-macbook",
+      "sshHost": "100.64.0.7",
+      "sshUser": "you",
+      "connect": "ssh",
+      "enabled": true,
+      "ingestToken": "REPLACE_WITH_openssl_rand_hex_32"
+    },
+    {
+      "id": "hub",
+      "label": "Ubuntu hub",
+      "os": "linux",
+      "tailnet": "cloud-claude-hub",
+      "connect": "tailscale-ssh",
+      "role": "hub",
+      "enabled": true
+    },
+    {
+      "id": "mac-mini",
+      "label": "Mac mini",
+      "os": "macos",
+      "connect": "ssh",
+      "enabled": false,
+      "_note": "not on the tailnet yet"
+    },
+    {
+      "id": "desktop",
+      "label": "Desktop",
+      "os": "windows",
+      "tailnet": "my-desktop",
+      "connect": "ssh",
+      "enabled": false,
+      "_note": "Windows (no tmux) — out of scope for v1"
+    }
+  ]
+}

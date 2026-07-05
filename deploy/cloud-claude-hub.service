@@ -1,0 +1,21 @@
+[Unit]
+# cloud-claude hub — the always-on Node relay (serves the PWA + /pty /run /agent /sessions).
+# Replaces the fragile manual `setsid nohup node …` with a supervised service: auto-restart on
+# crash, and it comes back after a reboot. Depends on tailscaled (the tailnet-only HTTPS front).
+Description=cloud-claude hub (phone-first personal OS relay)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/cloud-claude
+# WorkingDirectory is the repo root so dotenv loads .env (HUB_PIN, SESSION_SECRET, …) from there.
+ExecStart=/usr/bin/node hub/src/server.js
+Restart=always
+RestartSec=2
+StandardOutput=append:/home/ubuntu/cloud-claude/hub.log
+StandardError=append:/home/ubuntu/cloud-claude/hub.log
+
+[Install]
+WantedBy=multi-user.target
