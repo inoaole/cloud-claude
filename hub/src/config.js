@@ -47,6 +47,9 @@ export const config = {
   paths: {
     repoRoot,
     pwaDir: process.env.PWA_DIR || path.join(repoRoot, 'frontend', 'dist'),
+    // Briefing mp3s. Under data/ (next to timeline.db), NOT frontend/dist — a PWA rebuild
+    // wipes dist, and dist is served publicly while these narrate real positions.
+    briefingDir: process.env.BRIEFING_DIR || path.join(repoRoot, 'data', 'briefings'),
   },
 };
 

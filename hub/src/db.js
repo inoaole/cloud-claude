@@ -34,8 +34,42 @@ export function openDb(file) {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    -- Morning market briefings. Keyed by run_id, NOT date: a degraded briefing gets re-run
+    -- and corrected the same morning, and a date key would make that correction unstorable.
+    -- "Current" for a date is the newest created_at.
+    -- payload stays whole (undecomposed) in Phase 1 — the schema is still moving, and columns
+    -- would force a migration every time it does.
+    CREATE TABLE IF NOT EXISTS briefings (
+      run_id     TEXT PRIMARY KEY,
+      date       TEXT NOT NULL,      -- local (Asia/Seoul) date the briefing is FOR
+      status     TEXT NOT NULL,      -- ok | degraded | failed
+      payload    TEXT NOT NULL,      -- the whole briefing JSON
+      audio_path TEXT,               -- filename only; NULL when generation failed
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_briefings_date ON briefings(date, created_at);
   `);
   return db;
+}
+
+/** Store one briefing. Idempotent on run_id: a retried POST is a no-op, not a duplicate. */
+export function insertBriefing(db, row) {
+  const res = db.prepare(`
+    INSERT OR IGNORE INTO briefings (run_id, date, status, payload, audio_path, created_at)
+    VALUES (@run_id, @date, @status, @payload, @audio_path, @created_at)
+  `).run(row);
+  return res.changes === 1;
+}
+
+/** Newest briefing for a local date, or null. */
+export function latestBriefing(db, date) {
+  return db.prepare(`
+    SELECT run_id, date, status, payload, audio_path, created_at
+    FROM briefings WHERE date = ?
+    ORDER BY created_at DESC, run_id DESC
+    LIMIT 1
+  `).get(date) ?? null;
 }
 
 /**

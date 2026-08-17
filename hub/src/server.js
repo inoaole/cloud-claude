@@ -22,8 +22,9 @@ import {
   getSession as getAgentSession, removeSession as removeAgentSession, setStatus as setAgentStatus,
 } from './sessions.js';
 import { assertCwd, buildAgentCommand, mapEvent, wrapUserMessage } from './agent.js';
-import { openDb, insertEvents, queryTimeline } from './db.js';
+import { openDb, insertEvents, queryTimeline, insertBriefing, latestBriefing } from './db.js';
 import { handleIngest } from './ingest.js';
+import { handleBriefing, latestFor } from './market.js';
 import { buildRollup } from './rollup.js';
 import { handleSaveNote, getNote } from './notes.js';
 
@@ -39,6 +40,9 @@ app.use(cookieParser());
 // /ingest carries event batches → a larger cap (device-authed, tailnet-only). Scoped parser runs
 // BEFORE the global one; express.json is idempotent, so the global 4kb parser then skips /ingest.
 app.use('/ingest', express.json({ limit: '64kb' }));
+// A briefing carries ~6 minutes of Korean narration plus evidence — 10-30kb, well past the
+// global 4kb cap. This scoped parser MUST stay above the global one or every briefing 413s.
+app.use('/api/market/briefing', express.json({ limit: '256kb' }));
 app.use(express.json({ limit: '4kb' }));
 
 // Structured audit log — auth events only, never content (eng-review).
@@ -219,6 +223,54 @@ app.post('/pty/token', requireAuth, (req, res) => {
   audit('pty_token_issued');
   res.json({ token, ttl });
 });
+
+// ── Market briefing ──────────────────────────────────────────────────────────
+// POST is device-authed (bearer), like /ingest. Reads are behind the phone PIN.
+app.post('/api/market/briefing', async (req, res) => {
+  let devices;
+  try {
+    devices = await loadDevices(config.devicesFile);
+  } catch (err) {
+    audit('briefing_error', { msg: String(err?.message || err) });
+    return res.status(500).json({ error: 'briefing_failed' });
+  }
+  const r = handleBriefing({
+    devices,
+    body: req.body,
+    authHeader: req.headers.authorization,
+    insertFn: (row) => insertBriefing(db, row),
+  });
+  audit(r.status === 200 ? 'briefing_ok' : 'briefing_reject', {
+    runId: req.body?.run_id, status: r.status,
+    ...(r.status === 200 ? { briefingStatus: req.body?.status } : { reason: r.body?.error }),
+  });
+  res.status(r.status).json(r.body);
+});
+
+// Always 200 with an explicit state (ready | pending | missing) — never 404. "Nothing yet"
+// and "the generator never reported" must not render the same, and a 404 is also
+// indistinguishable from a routing mistake on the client.
+app.get('/api/market/latest', requireAuth, (_req, res) => {
+  try {
+    res.json(latestFor((date) => latestBriefing(db, date)));
+  } catch (err) {
+    audit('briefing_read_error', { msg: String(err?.message || err) });
+    res.status(500).json({ error: 'read_failed' });
+  }
+});
+
+// Audio sits behind the SAME gate as /timeline. It narrates real positions and stop levels,
+// so it must never ride on the public PWA static mount. Registered before the SPA fallback.
+app.use(
+  '/api/market/audio',
+  requireAuth,
+  express.static(config.paths.briefingDir, {
+    fallthrough: false,
+    setHeaders(res) {
+      res.setHeader('Cache-Control', 'private, max-age=31536000');
+    },
+  })
+);
 
 // ── PWA shell (public — serves the unlock screen to unauthenticated users) ────
 app.use(
