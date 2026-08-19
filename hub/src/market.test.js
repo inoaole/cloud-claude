@@ -122,6 +122,46 @@ test('same run_id twice stores one row; a new run_id corrects the day', () => {
   assert.equal(latestBriefing(db, '2026-08-18').run_id, 'run-bb');
 });
 
+test('a later failure record never masks a delivered briefing', () => {
+  // Regression, 2026-08-19: the 06:30 run published `degraded` with full content,
+  // then market-briefing-failed.service fired at 09:02 and its bare failure
+  // record became "latest". The phone said the generator had failed on a morning
+  // whose briefing was sitting in the table.
+  const db = openDb(':memory:');
+  const row = (run_id, status, created_at) => ({
+    run_id, date: '2026-08-19', status, payload: JSON.stringify({ run_id, status }),
+    audio_path: null, created_at,
+  });
+
+  insertBriefing(db, row('real-0630', 'degraded', 1000));
+  insertBriefing(db, row('onfailure-0902', 'failed', 2000)); // newer, but empty
+
+  assert.equal(latestBriefing(db, '2026-08-19').run_id, 'real-0630');
+});
+
+test('a failure still surfaces when it is all the day has', () => {
+  // The reporter's whole purpose: a dead runner must not read as a quiet morning.
+  const db = openDb(':memory:');
+  insertBriefing(db, {
+    run_id: 'onfailure-only', date: '2026-08-20', status: 'failed',
+    payload: JSON.stringify({ status: 'failed' }), audio_path: null, created_at: 1000,
+  });
+
+  assert.equal(latestBriefing(db, '2026-08-20').status, 'failed');
+});
+
+test('a newer real briefing still overrides an older failure', () => {
+  const db = openDb(':memory:');
+  const row = (run_id, status, created_at) => ({
+    run_id, date: '2026-08-21', status, payload: '{}', audio_path: null, created_at,
+  });
+
+  insertBriefing(db, row('early-failure', 'failed', 1000));
+  insertBriefing(db, row('retry-ok', 'ok', 2000));
+
+  assert.equal(latestBriefing(db, '2026-08-21').run_id, 'retry-ok');
+});
+
 // ── latest: ready / pending / missing ─────────────────────────────────────────
 
 const AUG18_0500_KST = Date.UTC(2026, 7, 17, 20, 0); // 05:00 KST on 2026-08-18

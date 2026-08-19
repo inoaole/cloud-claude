@@ -62,12 +62,28 @@ export function insertBriefing(db, row) {
   return res.changes === 1;
 }
 
-/** Newest briefing for a local date, or null. */
+/**
+ * Newest briefing for a local date, or null — but a `failed` record never masks
+ * a delivered one.
+ *
+ * Plain `created_at DESC` lost a real briefing: the 06:30 run published
+ * `degraded` with full content, then `market-briefing-failed.service` fired at
+ * 09:02 and its bare failure record became "latest". The phone showed "the
+ * generator failed" on a morning whose briefing was sitting in the table.
+ *
+ * The reporter exists so that a runner dying before its `finally` is not
+ * mistaken for a quiet morning. That is about the ABSENCE of a briefing. Once
+ * one has been delivered, a later failure report is news about a process, not
+ * about the day, and it must not replace what the user came to read.
+ *
+ * Failures are still stored and still surface when they are all the day has —
+ * every row is kept for forensics, it just cannot outrank real content.
+ */
 export function latestBriefing(db, date) {
   return db.prepare(`
     SELECT run_id, date, status, payload, audio_path, created_at
     FROM briefings WHERE date = ?
-    ORDER BY created_at DESC, run_id DESC
+    ORDER BY (status = 'failed') ASC, created_at DESC, run_id DESC
     LIMIT 1
   `).get(date) ?? null;
 }

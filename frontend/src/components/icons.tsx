@@ -67,6 +67,18 @@ export function IconSettings(props: IconProps) {
   );
 }
 
+/** Market — a rising line over a baseline. Deliberately not a candlestick:
+    this screen is a briefing to read, not a chart to trade off. */
+export function IconMarket(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M3.5 19.5h17" />
+      <path d="M5 15.5l4.5-5 3.5 3 5.5-6.5" />
+      <path d="M18.5 7v3.2M18.5 7h-3.2" />
+    </svg>
+  );
+}
+
 /** Trailing-edge disclosure chevron for the Cell component. */
 export function IconChevron(props: IconProps) {
   return (

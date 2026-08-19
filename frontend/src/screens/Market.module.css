@@ -1,0 +1,230 @@
+/* Market — reading-first, same dark grouped language as Today.
+   No new color tokens: the status badge borrows --t3 / --t2 / --danger, which
+   is enough to make ok / degraded / failed three visibly different things. */
+
+.screen {
+  height: 100%;
+  min-height: 0;
+}
+
+.scroll {
+  overflow-y: auto;
+  min-height: 0;
+  height: 100%;
+  padding: 4px var(--gutter) 24px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 2px 2px;
+}
+
+.date {
+  font-family: var(--ui);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--t1);
+}
+
+/* Three statuses, three shapes — not three shades of the same pill. */
+.badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--t3);
+  color: var(--t3);
+  flex: none;
+}
+.ok { border-style: solid; }
+.degraded { border-style: dashed; color: var(--t2); border-color: var(--t2); }
+.failed { color: var(--danger); border-color: var(--danger); border-width: 1.5px; }
+
+.degradedNote {
+  font-family: var(--ui);
+  font-size: 13px;
+  color: var(--t2);
+  margin: 8px 2px 2px;
+}
+
+.failure {
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 12px 0 4px;
+}
+.failureHead {
+  font-family: var(--ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.failureReason {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--t2);
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+/* Triggered rules: the only thing on this screen that may demand attention. */
+.alert {
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 12px 14px;
+  margin: 12px 0 4px;
+}
+.alertRow + .alertRow { margin-top: 10px; }
+.alertHead {
+  display: block;
+  font-family: var(--ui);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.alertAction {
+  display: block;
+  font-family: var(--ui);
+  font-size: 14px;
+  color: var(--danger);
+  margin-top: 2px;
+}
+
+/* Prose. Line length and leading are the whole point of the text-first bet. */
+.section { margin: 20px 2px 0; }
+.heading {
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--t3);
+  margin-bottom: 6px;
+}
+.prose {
+  font-family: var(--ui);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--t1);
+  overflow-wrap: break-word;
+}
+
+.candidate {
+  padding: 12px 14px;
+}
+.candidate + .candidate { border-top: 1px solid var(--hair); }
+.candHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ticker {
+  font-family: var(--ui);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.dim, .mono, .pubDate {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--t3);
+}
+.nums {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--t4);
+  margin-top: 4px;
+}
+.thesis {
+  font-family: var(--ui);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--t2);
+  margin-top: 6px;
+}
+
+.disclosure {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 8px 2px;
+  font-family: var(--ui);
+  font-size: 13px;
+  color: var(--link);
+  cursor: pointer;
+}
+
+.evidence {
+  list-style: none;
+  margin: 2px 0 4px;
+}
+.evidence li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+}
+.evidence a {
+  font-family: var(--ui);
+  font-size: 13px;
+  color: var(--link);
+  text-decoration: none;
+}
+
+/* `확인하지 못함` must not read as a normal value — it is an absence of data. */
+.unknown {
+  font-style: italic;
+  color: var(--t3);
+}
+
+.scoreboard {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--t4);
+  margin: 22px 2px 0;
+}
+
+.hint {
+  font-family: var(--ui);
+  font-size: 15px;
+  color: var(--t3);
+  text-align: center;
+}
+.bad { color: var(--danger); }
+.sub {
+  font-family: var(--ui);
+  font-size: 13px;
+  color: var(--t4);
+  text-align: center;
+  margin-top: 6px;
+  max-width: 30ch;
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 4px;
+  padding: 0 var(--gutter);
+}
+
+.retry {
+  appearance: none;
+  background: none;
+  border: 1px solid var(--t3);
+  border-radius: var(--radius);
+  padding: 8px 18px;
+  margin-top: 12px;
+  font-family: var(--ui);
+  font-size: 14px;
+  color: var(--t1);
+  cursor: pointer;
+}
