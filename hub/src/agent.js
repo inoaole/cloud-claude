@@ -67,6 +67,20 @@ export function buildAgentCommand(device, cwd, opts = {}) {
   };
 }
 
+/**
+ * Is the last turn in a transcript still open?
+ *
+ * Every turn ends with a `result`. Anything after that with no `result` is work
+ * still in flight — which is now the normal case, because the claude child keeps
+ * running after the phone detaches. The client uses this to decide between "claude
+ * is working…" and "Stopped"; getting it wrong either strands a spinner forever or
+ * invites a second prompt on top of a running turn.
+ */
+export function isTurnInFlight(events) {
+  if (!Array.isArray(events) || events.length === 0) return false;
+  return events[events.length - 1]?.type !== 'result';
+}
+
 /** One user turn, as a stream-json line for claude's stdin (schema verified in the spike). */
 export function wrapUserMessage(text) {
   return `${JSON.stringify({ type: 'user', message: { role: 'user', content: text } })}\n`;

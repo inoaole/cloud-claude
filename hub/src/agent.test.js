@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapEvent, buildAgentCommand, wrapUserMessage, assertCwd } from './agent.js';
+import { mapEvent, buildAgentCommand, wrapUserMessage, assertCwd, isTurnInFlight } from './agent.js';
 
 // Event shapes captured verbatim from the T0 spike (designs/agent-spike-20260701).
 test('mapEvent: assistant text → assistant block', () => {
@@ -105,4 +105,29 @@ test('buildAgentCommand: rejects unsafe cwd before building', () => {
 
 test('wrapUserMessage: stream-json user line (verified schema)', () => {
   assert.equal(wrapUserMessage('hi'), '{"type":"user","message":{"role":"user","content":"hi"}}\n');
+});
+
+// ── isTurnInFlight — the child now outlives a detach, so "open turn" is real ──
+
+test('isTurnInFlight: a turn closed by result is not in flight', () => {
+  assert.equal(isTurnInFlight([
+    { type: 'user', text: 'hi' }, { type: 'assistant', text: 'hello' }, { type: 'result', ok: true },
+  ]), false);
+});
+
+test('isTurnInFlight: output with no closing result is still working', () => {
+  assert.equal(isTurnInFlight([
+    { type: 'user', text: 'long job' }, { type: 'tool_use', id: 't1', name: 'Bash', input: {} },
+  ]), true);
+});
+
+test('isTurnInFlight: an empty or missing transcript is not in flight', () => {
+  assert.equal(isTurnInFlight([]), false);
+  assert.equal(isTurnInFlight(undefined), false);
+});
+
+test('isTurnInFlight: a new turn after a completed one reopens it', () => {
+  assert.equal(isTurnInFlight([
+    { type: 'user', text: 'a' }, { type: 'result', ok: true }, { type: 'user', text: 'b' },
+  ]), true);
 });
