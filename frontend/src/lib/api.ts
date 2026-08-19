@@ -193,3 +193,75 @@ export async function saveNote(date: string, tz: string, text: string): Promise<
   const res = await apiFetch('/note', { method: 'POST', body: JSON.stringify({ date, tz, text }) });
   if (!res.ok) throw new ApiError(res.status, await readJson(res));
 }
+
+// ── Market: the morning briefing (Phase 1b) ─────────────────────────────────
+
+/** ready — a briefing exists for today. pending — 06:30 KST has not passed yet.
+    missing — the deadline is behind us and nothing reported. `missing` is the
+    hub's own judgement: a runner that never started cannot report itself. */
+export type MarketState = 'ready' | 'pending' | 'missing';
+
+/** `triggered: null` means the price could not be fetched — NOT "not triggered".
+    The gate goes to real trouble to keep these apart; nothing downstream may
+    flatten them back together. */
+export interface WatchlistCheck {
+  ticker: string;
+  price: number | null;
+  rule: string | null;
+  action: string | null;
+  triggered: boolean | null;
+  unresolved_reason?: string | null;
+  note?: string | null;
+}
+
+export interface Evidence { claim: string; url: string; published_at: string }
+
+export interface Candidate {
+  ticker: string;
+  incumbent: string;
+  dimension: string;
+  period: string;
+  growth_gap_pp: number;
+  dilution_yoy_pct: number;
+  price_at_surface: number;
+  thesis: string;
+  evidence: Evidence[];
+}
+
+/** The 20-trading-day scoreboard. `unresolved` is surfaced deliberately: a hit
+    rate that silently omits unpriceable rows is an inflated one. */
+export interface Outcomes {
+  n: number;
+  scored: number;
+  positive: number;
+  hit_rate_pct: number | null;
+  median_pct: number | null;
+  best: { ticker: string; return_pct: number } | null;
+  worst: { ticker: string; return_pct: number } | null;
+  unresolved: number;
+}
+
+export interface Briefing {
+  run_id: string;
+  date: string;
+  status: 'ok' | 'degraded' | 'failed';
+  dropped: { ticker: string; reason: string }[];
+  script_ko: { heading: string; text: string }[];
+  watchlist_checks: WatchlistCheck[];
+  candidates: Candidate[];
+  outcomes?: Outcomes | null;
+  failure_reason?: string | null;
+  audio?: { path: string } | null;
+}
+
+export interface MarketLatest {
+  state: MarketState;
+  briefing?: Briefing;
+  expected_at?: string;
+}
+
+export async function getMarketLatest(): Promise<MarketLatest> {
+  const res = await apiFetch('/api/market/latest');
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  return (await res.json()) as MarketLatest;
+}

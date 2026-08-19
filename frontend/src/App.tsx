@@ -6,6 +6,7 @@ import { AppShell } from './components/AppShell';
 import { Splash } from './components/Splash';
 import { Unlock } from './screens/Unlock';
 import { Today } from './screens/Today';
+import { Market } from './screens/Market';
 import { Timeline } from './screens/Timeline';
 import { Growth } from './screens/Growth';
 import { Machines } from './screens/Machines';
@@ -60,6 +61,7 @@ export function App() {
               <AppShell>
                 <Routes>
                   <Route path="/today" element={<Today />} />
+                  <Route path="/market" element={<Market />} />
                   <Route path="/timeline" element={<Timeline />} />
                   <Route path="/growth" element={<Growth />} />
                   <Route path="/machines" element={<Machines />} />

@@ -7,6 +7,56 @@ import crypto from 'node:crypto';
 const sessions = new Map();
 const STATUSES = new Set(['starting', 'running', 'idle', 'exited', 'error']);
 
+// ── Transcript ────────────────────────────────────────────────────────────────
+// The WS is a live relay, not a log: `deliverAgent` used to send an event and keep
+// nothing, so leaving the screen emptied the chat and there was no past to replay.
+//
+// The transcript hangs off the SESSION, not the bridge, on purpose. The claude
+// child is killed 45s after the socket detaches, and the bridge dies with it — so
+// a transcript kept on the bridge would be gone exactly when the user comes back,
+// which is the case that prompted this.
+//
+// In-memory, like the rest of this registry: a hub restart clears it. Bounded two
+// ways because a single Bash tool result can be megabytes.
+const transcripts = new Map();
+const MAX_EVENTS = 500;
+const MAX_FIELD_CHARS = 4096;
+
+/** Trim the unbounded fields. Live delivery keeps the full text; only the stored copy shrinks. */
+function _bound(evt) {
+  const out = { ...evt };
+  for (const field of ['output', 'text']) {
+    const v = out[field];
+    if (typeof v === 'string' && v.length > MAX_FIELD_CHARS) {
+      out[field] = `${v.slice(0, MAX_FIELD_CHARS)}\n… (truncated in transcript)`;
+    }
+  }
+  return out;
+}
+
+/**
+ * Append one replayable event. Returns the stored event, or null if skipped.
+ *
+ * `assistant_delta` is deliberately NOT stored: it is the token-by-token stream
+ * for the typing feel, and the `assistant` event that follows carries the same
+ * text in full. Keeping deltas would multiply the log by ~100x to replay
+ * something the next event already says.
+ */
+export function appendEvent(sessionId, evt) {
+  if (!sessionId || !evt || evt.type === 'assistant_delta') return null;
+  const log = transcripts.get(sessionId) || [];
+  const stored = _bound(evt);
+  log.push(stored);
+  if (log.length > MAX_EVENTS) log.splice(0, log.length - MAX_EVENTS);
+  transcripts.set(sessionId, log);
+  return stored;
+}
+
+/** Everything needed to rebuild the chat, oldest first. Empty for an unknown session. */
+export function getTranscript(sessionId) {
+  return transcripts.get(sessionId) || [];
+}
+
 /** Create an agent session's metadata. The child is spawned later when a WS attaches. */
 export function createSession({ deviceId, cwd, title } = {}, now = Date.now()) {
   if (!deviceId) throw new Error('deviceId required');
@@ -37,10 +87,12 @@ export function setStatus(id, status) {
 export function removeSession(id) {
   const s = sessions.get(id) || null;
   sessions.delete(id);
+  transcripts.delete(id); // explicit kill discards the chat; a detach must not
   return s;
 }
 
 /** Test-only reset. */
 export function _clear() {
   sessions.clear();
+  transcripts.clear();
 }

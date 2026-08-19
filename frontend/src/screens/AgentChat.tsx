@@ -18,6 +18,10 @@ interface Turn {
   startedAt: number; endedAt?: number; ms?: number | null; errorText?: string;
 }
 
+/** One replayed event from the hub's session transcript (`{type:'history', events}`).
+    Same shape as a live WS event, minus `assistant_delta`, which is not stored. */
+type HistoryEvent = { type: string; [k: string]: unknown };
+
 type Action =
   | { type: 'START'; id: string; prompt: string; now: number }
   | { type: 'DELTA'; text: string }
@@ -26,14 +30,28 @@ type Action =
   | { type: 'TOOL_RESULT'; id: string; ok: boolean; output: string }
   | { type: 'CLOSE'; ok: boolean; ms: number | null; now: number; text?: string | null }
   | { type: 'STOP' }
-  | { type: 'TOGGLE'; turnId: string; toolId: string };
+  | { type: 'TOGGLE'; turnId: string; toolId: string }
+  | { type: 'HYDRATE'; events: HistoryEvent[]; running: boolean; now: number };
 
 const closeStreaming = (blocks: Block[]): Block[] =>
   blocks.map((b) => (b.kind === 'assistant' && b.streaming ? { ...b, streaming: false } : b));
 
+/** A turn to hang orphaned events on. The hub replays `user` events so this is rare,
+    but a mid-flight reattach can land assistant output before any prompt exists —
+    and dropping it silently is what made the chat look empty. */
+const orphanTurn = (now: number): Turn =>
+  ({ id: rid(), prompt: '(earlier)', blocks: [], status: 'running', startedAt: now });
+
 function reducer(turns: Turn[], a: Action): Turn[] {
-  const lastIdx = turns.length - 1;
-  const upd = (fn: (t: Turn) => Turn) => turns.map((t, i) => (i === lastIdx ? fn(t) : t));
+  // Every non-START action targets the LAST turn. With no turns yet, `map` over an
+  // empty array quietly discarded the event — so replayed and buffered output
+  // vanished instead of rendering.
+  const base = turns.length === 0 && a.type !== 'START' && a.type !== 'HYDRATE' && a.type !== 'TOGGLE'
+    ? [orphanTurn(Date.now())]
+    : turns;
+  const lastIdx = base.length - 1;
+  const upd = (fn: (t: Turn) => Turn) => base.map((t, i) => (i === lastIdx ? fn(t) : t));
+  turns = base;
   switch (a.type) {
     case 'START':
       return [...turns, { id: a.id, prompt: a.prompt, blocks: [], status: 'running', startedAt: a.now }];
@@ -76,6 +94,40 @@ function reducer(turns: Turn[], a: Action): Turn[] {
       return turns.map((t) => (t.id !== a.turnId ? t : {
         ...t, blocks: t.blocks.map((b) => (b.kind === 'tool' && b.id === a.toolId ? { ...b, expanded: !b.expanded } : b)),
       }));
+    case 'HYDRATE': {
+      // Only ever fills an empty chat. On a live reconnect (socket dropped, component
+      // still mounted) the turns on screen are already correct, and replaying the
+      // transcript over them would duplicate every turn.
+      if (turns.length > 0) return turns;
+      let next: Turn[] = [];
+      for (const e of a.events) {
+        switch (e.type) {
+          case 'user':
+            next = reducer(next, { type: 'START', id: rid(), prompt: String(e.text ?? ''), now: a.now });
+            break;
+          case 'assistant':
+            next = reducer(next, { type: 'ASSISTANT', text: String(e.text ?? '') });
+            break;
+          case 'tool_use':
+            next = reducer(next, { type: 'TOOL_USE', id: String(e.id), name: String(e.name), input: (e.input as Record<string, unknown>) ?? {} });
+            break;
+          case 'tool_result':
+            next = reducer(next, { type: 'TOOL_RESULT', id: String(e.id), ok: Boolean(e.ok), output: String(e.output ?? '') });
+            break;
+          case 'result':
+            next = reducer(next, { type: 'CLOSE', ok: Boolean(e.ok), ms: (e.ms as number) ?? null, text: e.ok ? null : String(e.text ?? ''), now: a.now });
+            break;
+          default:
+            break; // thinking / status / exit carry nothing to rebuild
+        }
+      }
+      // An open turn is only "stopped" if the hub says nothing is in flight. The child
+      // now survives a detach, so the usual case is that it really is still working —
+      // marking that Stopped would be a lie, and would invite a second prompt on top.
+      if (a.running) return next;
+      return next.map((t, i) => (i === next.length - 1 && t.status === 'running'
+        ? { ...t, status: 'stopped', blocks: closeStreaming(t.blocks) } : t));
+    }
     default:
       return turns;
   }
@@ -142,6 +194,14 @@ export function AgentChat({ id, sessionId, label, onStatus }: { id: string; sess
           let m: { type: string; [k: string]: unknown };
           try { m = JSON.parse(ev.data); } catch { return; }
           switch (m.type) {
+            case 'history': {
+              // `running` = the agent kept working while the app was closed. Restore the
+              // busy state too, or the composer would accept a prompt mid-turn.
+              const live = Boolean(m.running);
+              dispatch({ type: 'HYDRATE', events: (m.events as HistoryEvent[]) ?? [], running: live, now: Date.now() });
+              setBusy(live);
+              break;
+            }
             case 'assistant_delta': dispatch({ type: 'DELTA', text: String(m.text ?? '') }); break;
             case 'assistant': dispatch({ type: 'ASSISTANT', text: String(m.text ?? '') }); break;
             case 'tool_use': dispatch({ type: 'TOOL_USE', id: String(m.id), name: String(m.name), input: (m.input as Record<string, unknown>) ?? {} }); break;
