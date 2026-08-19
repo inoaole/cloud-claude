@@ -34,6 +34,22 @@ function signed(n: number): string {
   return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
 }
 
+const DIMENSION_KO: Record<string, string> = {
+  revenue_growth_yoy: '매출 성장률',
+  contract_wins: '계약 수주',
+  backlog_growth: '수주잔고',
+  market_share: '점유율',
+};
+
+/** `growth_gap_pp` is ALWAYS a revenue comparison, whatever the dimension says.
+    For `revenue_growth_yoy` that number is the claim itself. For the other three
+    the gate measures a different axis entirely, so it is context — and a
+    challenger taking contracts is routinely the slower-growing company, which is
+    the shape of the trade, not a mark against it. Labelling both the same way
+    made a −35.1%p reference figure read as the reason the pick was made.
+    Mirrors `schema.GAP_IS_THE_CLAIM` on the runner side. */
+const GAP_IS_THE_CLAIM = new Set(['revenue_growth_yoy']);
+
 /** 2026-08-18 → 8월 18일. Parsed at noon UTC so the day cannot slip a date. */
 function headerFor(date: string): string {
   const d = new Date(`${date}T12:00:00Z`);
@@ -186,10 +202,13 @@ export function Market() {
               <div key={c.ticker} className={styles.candidate}>
                 <div className={styles.candHead}>
                   <span className={styles.ticker}>{c.ticker} ← {c.incumbent}</span>
-                  <span className={styles.dim}>{c.dimension}</span>
+                  <span className={styles.dim}>{DIMENSION_KO[c.dimension] ?? c.dimension}</span>
                 </div>
                 <p className={styles.nums}>
-                  성장률 갭 {signed(c.growth_gap_pp)}%p · 희석 {signed(c.dilution_yoy_pct)}% · {money(c.price_at_surface)}
+                  {GAP_IS_THE_CLAIM.has(c.dimension)
+                    ? <>매출 성장률 갭 {signed(c.growth_gap_pp)}%p</>
+                    : <><span className={styles.ref}>참고</span> 매출 성장률 갭 {signed(c.growth_gap_pp)}%p</>}
+                  {' · '}희석 {signed(c.dilution_yoy_pct)}% · {money(c.price_at_surface)}
                 </p>
                 <p className={styles.thesis}>“{c.thesis}”</p>
                 <button

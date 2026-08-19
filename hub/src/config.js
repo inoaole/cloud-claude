@@ -47,8 +47,12 @@ export const config = {
   paths: {
     repoRoot,
     pwaDir: process.env.PWA_DIR || path.join(repoRoot, 'frontend', 'dist'),
-    // Briefing mp3s. Under data/ (next to timeline.db), NOT frontend/dist — a PWA rebuild
-    // wipes dist, and dist is served publicly while these narrate real positions.
+    // Briefing mp3s. NOT frontend/dist — a PWA rebuild wipes dist, and dist is served
+    // publicly while these narrate real positions and stop levels.
+    // In production set BRIEFING_DIR=/var/lib/briefing/audio: the generator runs under a
+    // systemd sandbox with ProtectHome=yes, so anything under /home is unwritable to it.
+    // The hub reads that directory via the briefingshare group. The repo-local default
+    // below is for dev only.
     briefingDir: process.env.BRIEFING_DIR || path.join(repoRoot, 'data', 'briefings'),
   },
 };

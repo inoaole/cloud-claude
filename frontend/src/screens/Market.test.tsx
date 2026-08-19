@@ -179,6 +179,8 @@ describe('Market', () => {
 
     expect(await screen.findByText(/ACME/)).toBeInTheDocument();
     expect(screen.getByText(/666\.2/)).toBeInTheDocument();
+    expect(screen.getByText('계약 수주')).toBeInTheDocument();   // dimension in Korean
+    expect(screen.getByText('참고')).toBeInTheDocument();        // gap is off-axis here
     expect(screen.getByText(/1위에게서 계약을 가져오는 중/)).toBeInTheDocument();
 
     await userEvent.click(screen.getByText(/근거 2건/));
@@ -214,5 +216,44 @@ describe('Market', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '다시 시도' }));
     expect(await screen.findByText('거시')).toBeInTheDocument();
+  });
+});
+
+describe('Market — the gap label follows the dimension', () => {
+  const cand = briefing.candidates[0];
+
+  it('a revenue_growth_yoy claim shows the gap as the claim, unqualified', async () => {
+    mockLatest.mockResolvedValue(
+      ready({ candidates: [{ ...cand, dimension: 'revenue_growth_yoy', growth_gap_pp: 20.0 }] }),
+    );
+    render(<Market />);
+
+    expect(await screen.findByText('매출 성장률')).toBeInTheDocument();
+    expect(screen.getByText(/매출 성장률 갭 \+20\.0%p/)).toBeInTheDocument();
+    expect(screen.queryByText('참고')).not.toBeInTheDocument();
+  });
+
+  it('a market_share claim marks the gap as reference, not the reason', async () => {
+    // growth_gap_pp is ALWAYS revenue. Real case: AMD ← NVDA, market_share,
+    // −35.1%p. Showing that bare read as "the pick is losing", when the gate
+    // never measured share at all.
+    mockLatest.mockResolvedValue(
+      ready({ candidates: [{ ...cand, dimension: 'market_share', growth_gap_pp: -35.1 }] }),
+    );
+    render(<Market />);
+
+    expect(await screen.findByText('점유율')).toBeInTheDocument();
+    expect(screen.getByText('참고')).toBeInTheDocument();
+    expect(screen.getByText(/매출 성장률 갭 -35\.1%p/)).toBeInTheDocument();
+  });
+
+  it('an unknown dimension falls back to the raw value rather than blanking', async () => {
+    mockLatest.mockResolvedValue(
+      ready({ candidates: [{ ...cand, dimension: 'brand_new_axis' }] }),
+    );
+    render(<Market />);
+
+    expect(await screen.findByText('brand_new_axis')).toBeInTheDocument();
+    expect(screen.getByText('참고')).toBeInTheDocument();
   });
 });

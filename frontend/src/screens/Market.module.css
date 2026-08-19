@@ -140,6 +140,16 @@
   color: var(--t4);
   margin-top: 4px;
 }
+/* A gap measured on a different axis than the dimension claims. Marked so it
+   cannot be read as the reason the candidate was surfaced. */
+.ref {
+  border: 1px solid var(--t3);
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-right: 4px;
+  font-size: 10px;
+  color: var(--t3);
+}
 .thesis {
   font-family: var(--ui);
   font-size: 14px;
