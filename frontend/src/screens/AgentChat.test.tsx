@@ -94,3 +94,141 @@ describe('AgentChat', () => {
     expect(screen.getByText(/FILE BODY/)).toBeInTheDocument();
   });
 });
+
+describe('AgentChat — resuming after leaving the app', () => {
+  it('rebuilds the chat from the hub transcript on reattach', async () => {
+    // The bug: the transcript lived only in component state and the hub kept
+    // nothing, so remounting showed an empty chat with no way to ask for history.
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    await screen.findByLabelText('Message');
+
+    act(() => {
+      lastWs!.emit({
+        type: 'history',
+        events: [
+          { type: 'user', text: 'run the tests' },
+          { type: 'tool_use', id: 't1', name: 'Bash', input: { command: 'npm test' } },
+          { type: 'tool_result', id: 't1', ok: true, output: '12 passed' },
+          { type: 'assistant', text: 'All 12 tests pass.' },
+          { type: 'result', ok: true, ms: 4200 },
+        ],
+      });
+    });
+
+    expect(screen.getByText('run the tests')).toBeInTheDocument();
+    expect(screen.getByText('All 12 tests pass.')).toBeInTheDocument();
+    expect(screen.getByText('Bash')).toBeInTheDocument();
+    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(screen.getByText('~4.2s')).toBeInTheDocument();
+  });
+
+  it('replays multiple turns in order', async () => {
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    await screen.findByLabelText('Message');
+
+    act(() => {
+      lastWs!.emit({
+        type: 'history',
+        events: [
+          { type: 'user', text: 'first question' },
+          { type: 'assistant', text: 'first answer' },
+          { type: 'result', ok: true, ms: 1000 },
+          { type: 'user', text: 'second question' },
+          { type: 'assistant', text: 'second answer' },
+          { type: 'result', ok: true, ms: 2000 },
+        ],
+      });
+    });
+
+    const first = screen.getByText('first answer');
+    const second = screen.getByText('second answer');
+    expect(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('a turn still running when the app closed shows Stopped, not a live spinner', async () => {
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    await screen.findByLabelText('Message');
+
+    act(() => {
+      lastWs!.emit({
+        type: 'history',
+        events: [{ type: 'user', text: 'long job' }, { type: 'assistant', text: 'working on it' }],
+        running: false,
+      });
+    });
+
+    expect(screen.getByText('Stopped')).toBeInTheDocument();
+    expect(screen.queryByText('claude is working…')).not.toBeInTheDocument();
+  });
+
+  it('history does not duplicate turns already on screen', async () => {
+    // A live reconnect (socket dropped, component still mounted) replays the same
+    // transcript. Folding it in again would double every turn.
+    const user = userEvent.setup();
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    const input = await screen.findByLabelText('Message');
+
+    await user.type(input, 'only once');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    act(() => {
+      lastWs!.emit({ type: 'history', events: [{ type: 'user', text: 'only once' }] });
+    });
+
+    expect(screen.getAllByText('only once')).toHaveLength(1);
+  });
+
+  it('assistant output arriving with no turn yet is rendered, not dropped', async () => {
+    // Every non-START action targeted turns[last]; with turns empty, map over [] threw
+    // the event away. Mid-flight output after a reattach vanished silently.
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    await screen.findByLabelText('Message');
+
+    act(() => { lastWs!.emit({ type: 'assistant', text: 'orphaned but visible' }); });
+
+    expect(screen.getByText('orphaned but visible')).toBeInTheDocument();
+  });
+});
+
+describe('AgentChat — the agent keeps working in the background', () => {
+  it('an in-flight turn resumes as running, not Stopped', async () => {
+    // The child now survives a detach, so an open turn is usually still working.
+    // Calling that Stopped would be a lie and would invite a prompt on top of it.
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    await screen.findByLabelText('Message');
+
+    act(() => {
+      lastWs!.emit({
+        type: 'history',
+        events: [{ type: 'user', text: 'long refactor' }, { type: 'assistant', text: 'starting…' }],
+        running: true,
+      });
+    });
+
+    expect(screen.getByText('claude is working…')).toBeInTheDocument();
+    expect(screen.queryByText('Stopped')).not.toBeInTheDocument();
+  });
+
+  it('work done while away is visible on return, and the turn closes normally', async () => {
+    render(<AgentChat sessionId="s1" id="macbook-pro" label="MacBook Pro" onStatus={() => {}} />);
+    await screen.findByLabelText('Message');
+
+    act(() => {
+      lastWs!.emit({
+        type: 'history',
+        events: [
+          { type: 'user', text: 'refactor the parser' },
+          { type: 'tool_use', id: 'e1', name: 'Edit', input: { file_path: '/src/parse.ts' } },
+          { type: 'tool_result', id: 'e1', ok: true, output: 'ok' },
+        ],
+        running: true,
+      });
+    });
+    expect(screen.getByText('Edit')).toBeInTheDocument();       // happened while away
+    expect(screen.getByText('claude is working…')).toBeInTheDocument();
+
+    act(() => { lastWs!.emit({ type: 'result', ok: true, ms: 61000 }); });
+    expect(screen.getByText('Done')).toBeInTheDocument();
+    expect(screen.getByText('~61.0s')).toBeInTheDocument();
+  });
+});

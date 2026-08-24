@@ -44,6 +44,7 @@ frontend/.vite/
 # Claude
 .claude/
 .gstack/
+.worktrees/
 
 # Legacy / unrelated-project files (kept on disk, never committed)
 legacy/

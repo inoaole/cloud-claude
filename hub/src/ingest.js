@@ -1,24 +1,14 @@
 // POST /ingest logic (Sprint 5, v1a) — kept as a pure function so it's unit-testable without HTTP.
 // Auth = per-device ingest token (Bearer), SEPARATE from the phone PIN. A leaked token can only
 // POST timeline events for that one allowlisted device — no shell, no agent, minimal blast radius.
-import crypto from 'node:crypto';
 import { validateEvent, V1_KINDS } from '../../shared/schema.js';
+import { authorizeDevice, bearer, tokenMatches } from './bearer-auth.js';
 
 export const INGEST_MAX = 200; // events per request (paired with the 64kb body cap in server.js)
 
-/** Extract the bearer token from an Authorization header, or null. */
-export function bearer(authHeader) {
-  const m = /^Bearer (.+)$/.exec(authHeader || '');
-  return m ? m[1] : null;
-}
-
-/** Constant-time token compare (length-guarded) — no early-exit on the trust boundary. */
-export function tokenMatches(input, expected) {
-  const a = Buffer.from(String(input ?? ''), 'utf8');
-  const b = Buffer.from(String(expected ?? ''), 'utf8');
-  if (a.length === 0 || a.length !== b.length) return false;
-  return crypto.timingSafeEqual(a, b);
-}
+// Re-exported so existing importers (and ingest.test.js) keep working after the
+// move to bearer-auth.js, which /api/market/briefing shares.
+export { bearer, tokenMatches };
 
 /**
  * Validate auth + body, then insert via the injected `insertFn(events, now)`.
@@ -26,12 +16,8 @@ export function tokenMatches(input, expected) {
  */
 export function handleIngest({ devices, body, authHeader, insertFn, now }) {
   const deviceId = body?.device_id;
-  // enabled:false is a kill switch — it must stop ingest too (as it does /pty and /sessions),
-  // so disabling a compromised device revokes ALL of its access, not just the console.
-  const device = devices.find((d) => d.id === deviceId && d.enabled !== false);
-  const token = bearer(authHeader);
   // Unknown/disabled device, no configured token, or a bad/missing bearer → 401 (don't say why).
-  if (!device || !device.ingestToken || !token || !tokenMatches(token, device.ingestToken)) {
+  if (!authorizeDevice(devices, deviceId, authHeader)) {
     return { status: 401, body: { error: 'unauthorized' } };
   }
 
