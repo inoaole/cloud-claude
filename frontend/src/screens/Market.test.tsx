@@ -257,3 +257,72 @@ describe('Market — the gap label follows the dimension', () => {
     expect(screen.getByText('참고')).toBeInTheDocument();
   });
 });
+
+describe('보유 포지션 손익', () => {
+  const held = (overrides: Partial<Briefing['watchlist_checks'][0]> = {}) => ({
+    ...briefing,
+    watchlist_checks: [
+      {
+        ticker: 'AMTM', price: 20.475, rule: null, action: null, triggered: null,
+        position: { quantity: 33, avg_cost: 21.17, pnl_rate: -0.0328 },
+        origin: { surfaced_date: '2026-08-20', price_at_surface: 21.03, return_since_surface: -0.0264 },
+        ...overrides,
+      },
+    ],
+  });
+
+  it('수량·평단·수익률을 보여준다', async () => {
+    mockLatest.mockResolvedValue({ state: 'ready', briefing: held() } as MarketLatest);
+    render(<Market />);
+    const row = await screen.findByTestId('position-AMTM');
+    expect(row).toHaveTextContent('33주');
+    expect(row).toHaveTextContent('$21.17');
+    expect(row).toHaveTextContent('-3.3%');
+  });
+
+  it('언제 얼마에 제안했는지 같이 보여준다', async () => {
+    mockLatest.mockResolvedValue({ state: 'ready', briefing: held() } as MarketLatest);
+    render(<Market />);
+    const row = await screen.findByTestId('origin-AMTM');
+    expect(row).toHaveTextContent('8월 20일');
+    expect(row).toHaveTextContent('$21.03');
+    expect(row).toHaveTextContent('-2.6%');
+  });
+
+  it('가격을 못 가져오면 —, 0%가 아니다', async () => {
+    // "수익률을 모른다"와 "본전이다"는 다른 문장이다. 게이트가 지키는 구분을
+    // 화면이 무너뜨리면 안 된다.
+    mockLatest.mockResolvedValue({
+      state: 'ready',
+      briefing: held({
+        price: null,
+        position: { quantity: 33, avg_cost: 21.17, pnl_rate: null },
+        origin: null,
+      }),
+    } as MarketLatest);
+    render(<Market />);
+    const row = await screen.findByTestId('position-AMTM');
+    expect(row).toHaveTextContent('—');
+    expect(row).not.toHaveTextContent('0.0%');
+  });
+
+  it('봇이 제안한 적 없는 종목은 origin 줄이 아예 없다', async () => {
+    mockLatest.mockResolvedValue({
+      state: 'ready',
+      briefing: held({ origin: null }),
+    } as MarketLatest);
+    render(<Market />);
+    await screen.findByTestId('position-AMTM');
+    expect(screen.queryByTestId('origin-AMTM')).toBeNull();
+  });
+
+  it('보유하지 않는 관심 종목은 손익 줄이 없다', async () => {
+    mockLatest.mockResolvedValue({
+      state: 'ready',
+      briefing: held({ ticker: 'SOXL', position: null, origin: null, note: '다른 계좌' }),
+    } as MarketLatest);
+    render(<Market />);
+    await screen.findByText('워치리스트');
+    expect(screen.queryByTestId('position-SOXL')).toBeNull();
+  });
+});

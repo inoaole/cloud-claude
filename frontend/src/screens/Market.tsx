@@ -34,6 +34,19 @@ function signed(n: number): string {
   return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
 }
 
+/** The gate ships ratios (0.0155); percent is a presentation choice made here.
+    null renders as — because "we could not price it" is not 0%. */
+function pct(rate: number | null | undefined): string {
+  return rate == null ? '—' : `${signed(rate * 100)}%`;
+}
+
+/** Red on a loss, plain on a gain. Reuses the existing --danger token rather
+    than introducing a green one: a losing position is the thing worth spotting
+    from across the room, and this file's rule is no new color tokens. */
+function lossy(rate: number | null | undefined) {
+  return rate != null && rate < 0 ? styles.bad : undefined;
+}
+
 const DIMENSION_KO: Record<string, string> = {
   revenue_growth_yoy: '매출 성장률',
   contract_wins: '계약 수주',
@@ -241,7 +254,29 @@ export function Market() {
               <Cell
                 key={`${w.ticker}-${w.rule}-${i}`}
                 title={<>{w.ticker} <span className={styles.mono}>{money(w.price)}</span></>}
-                subtitle={<span className={styles.mono}>{w.rule ?? w.note ?? '규칙 없음'}</span>}
+                subtitle={
+                  <>
+                    <div className={styles.mono}>{w.rule ?? w.note ?? '규칙 없음'}</div>
+                    {/* Two lines the Toss app cannot show: what the position cost
+                        you, and what it cost the briefing that proposed it. Held
+                        rows only — a `watching` entry has neither. */}
+                    {w.position && (
+                      <div className={styles.mono} data-testid={`position-${w.ticker}`}>
+                        {w.position.quantity}주 · 평단 {money(w.position.avg_cost)} ·{' '}
+                        <span className={lossy(w.position.pnl_rate)}>{pct(w.position.pnl_rate)}</span>
+                      </div>
+                    )}
+                    {w.origin && (
+                      <div className={styles.mono} data-testid={`origin-${w.ticker}`}>
+                        {w.origin.surfaced_date ? `${headerFor(w.origin.surfaced_date)} 제안 ` : '제안 '}
+                        {money(w.origin.price_at_surface)} 이후{' '}
+                        <span className={lossy(w.origin.return_since_surface)}>
+                          {pct(w.origin.return_since_surface)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                }
                 value={
                   <span className={w.triggered == null && w.rule != null ? styles.unknown : undefined}>
                     {triggerLabel(w)}

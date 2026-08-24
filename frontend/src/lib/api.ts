@@ -204,6 +204,22 @@ export type MarketState = 'ready' | 'pending' | 'missing';
 /** `triggered: null` means the price could not be fetched — NOT "not triggered".
     The gate goes to real trouble to keep these apart; nothing downstream may
     flatten them back together. */
+/** What the position cost you. `pnl_rate` is a RATIO (0.0155 == 1.55%), and it
+    is null when the price could not be fetched — unknown, never break-even. */
+export interface Position {
+  quantity: number;
+  avg_cost: number;
+  pnl_rate: number | null;
+}
+
+/** Where this holding came from: the briefing that first proposed it. Absent on
+    anything the bot never surfaced, which is a normal state, not a failure. */
+export interface Origin {
+  surfaced_date: string | null;
+  price_at_surface: number;
+  return_since_surface: number | null;
+}
+
 export interface WatchlistCheck {
   ticker: string;
   price: number | null;
@@ -212,6 +228,8 @@ export interface WatchlistCheck {
   triggered: boolean | null;
   unresolved_reason?: string | null;
   note?: string | null;
+  position?: Position | null;
+  origin?: Origin | null;
 }
 
 export interface Evidence { claim: string; url: string; published_at: string }
