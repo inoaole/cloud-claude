@@ -103,9 +103,16 @@ Tests need zero infrastructure: `node --test` in `hub/` `shared/` `collector/`, 
 
 ## Status
 
-`v0.8.0` — both planes live on the real tailnet. The current experiment isn't code: **open the
-Today screen seven evenings straight.** If the loop survives a week, next comes session
-observation (`ps`-scan → agent sessions on the timeline), permanent daily rollups + retention,
-and the Growth screen. Full plan: [`docs/SPRINTS.md`](docs/SPRINTS.md).
+`v0.9.0` — both planes live on the real tailnet, 13 PRs merged, 221 tests. Since v0.8:
+
+- **Sessions on the timeline** — the collector now sees `claude` / `codex` / `tmux` sessions
+  (process scan, emit-on-end, deterministic ids), so Today shows what my agents did, not just my commits.
+- **Agent sessions survive the app** — close the PWA mid-run; the agent keeps working and the
+  conversation is there when I come back.
+- **Market tab** — the morning briefing, read on the phone: open positions with P&L and *why*
+  each one was bought.
+
+Next (v1 close-out): permanent daily rollups + retention, a design/QA/security pass, and the hub
+moving to its always-on box. After that, the Growth screen. Full plan: [`docs/SPRINTS.md`](docs/SPRINTS.md).
 
 Built for exactly one user. Fork the ideas, not the config.
