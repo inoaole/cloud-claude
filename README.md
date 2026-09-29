@@ -1,6 +1,6 @@
 # cloud-claude
 
-![cloud-claude — Today screen and two-plane architecture](docs/assets/hero.svg)
+![cloud-claude on iPhone — Today and Machines](docs/assets/hero.png)
 
 My phone shows me the truth of my day — and I didn't have to write any of it.
 
