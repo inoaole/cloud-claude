@@ -1,6 +1,6 @@
 # cloud-claude
 
-![cloud-claude on iPhone — Today and Machines](docs/assets/hero.png)
+![cloud-claude on iPhone — Today, Agent and Machines](docs/assets/hero.png)
 
 My phone shows me the truth of my day — and I didn't have to write any of it.
 
