@@ -1,5 +1,7 @@
 # cloud-claude
 
+![cloud-claude — Today screen and two-plane architecture](docs/assets/hero.svg)
+
 My phone shows me the truth of my day — and I didn't have to write any of it.
 
 I tried journaling. It lasted four days. The problem isn't discipline, it's that a journal asks

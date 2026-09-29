@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="600" viewBox="0 0 1200 600" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif">
+  <rect width="1200" height="600" rx="24" fill="#0b0b0d"/>
+
+  <!-- phone -->
+  <rect x="80" y="40" width="300" height="520" rx="44" fill="#000" stroke="#3a3a3c" stroke-width="3"/>
+  <rect x="190" y="56" width="80" height="22" rx="11" fill="#1c1c1e"/>
+  <text x="104" y="118" fill="#8e8e93" font-size="13" font-weight="600" letter-spacing="1">TODAY</text>
+  <text x="104" y="146" fill="#fff" font-size="24" font-weight="700">Wednesday, July 2</text>
+
+  <rect x="100" y="166" width="260" height="206" rx="14" fill="#1c1c1e"/>
+  <text x="116" y="194" fill="#fff" font-size="15" font-weight="600">cloud-claude</text>
+  <g font-family="ui-monospace, 'SF Mono', Menlo, monospace" font-size="11.5">
+    <text x="116" y="222" fill="#2997ff">190492a</text><text x="176" y="222" fill="#d1d1d6">chore(release): 0.8.0</text>
+    <text x="116" y="246" fill="#2997ff">1c3d111</text><text x="176" y="246" fill="#d1d1d6">Merge PR #9 — reflection</text>
+    <text x="116" y="270" fill="#2997ff">f3d73e6</text><text x="176" y="270" fill="#d1d1d6">feat(today): /rollup</text>
+  </g>
+  <line x1="116" y1="292" x2="344" y2="292" stroke="#2a2a2c"/>
+  <text x="116" y="318" fill="#8e8e93" font-size="13">~active 20:12–23:40 · 37 beats</text>
+  <g transform="translate(116,336)">
+    <rect width="7" height="18" y="8" rx="2" fill="#2a2a2c"/><rect x="11" width="7" height="12" y="14" rx="2" fill="#2a2a2c"/>
+    <rect x="22" width="7" height="22" y="4" rx="2" fill="#0066cc"/><rect x="33" width="7" height="26" rx="2" fill="#2997ff"/>
+    <rect x="44" width="7" height="16" y="10" rx="2" fill="#0066cc"/><rect x="55" width="7" height="20" y="6" rx="2" fill="#2997ff"/>
+    <rect x="66" width="7" height="10" y="16" rx="2" fill="#0066cc"/>
+  </g>
+
+  <rect x="100" y="388" width="260" height="48" rx="12" fill="#2a2a2c"/>
+  <text x="116" y="418" fill="#8e8e93" font-size="14">One line about today</text>
+  <text x="344" y="418" fill="#2997ff" font-size="14" font-weight="600" text-anchor="end">Save</text>
+
+  <g font-size="11" fill="#8e8e93" text-anchor="middle">
+    <line x1="80" y1="492" x2="380" y2="492" stroke="#2a2a2c"/>
+    <text x="140" y="520" fill="#2997ff" font-weight="600">Today</text>
+    <text x="230" y="520">Machines</text>
+    <text x="320" y="520">Market</text>
+  </g>
+
+  <!-- title -->
+  <text x="460" y="112" fill="#fff" font-size="34" font-weight="700">cloud-claude</text>
+  <text x="460" y="146" fill="#8e8e93" font-size="17">Phone-first personal OS · self-hosted · tailnet-only</text>
+
+  <!-- hub node -->
+  <rect x="460" y="190" width="200" height="64" rx="12" fill="#1c1c1e" stroke="#2997ff"/>
+  <text x="560" y="218" fill="#fff" font-size="15" font-weight="600" text-anchor="middle">iPhone PWA</text>
+  <text x="560" y="238" fill="#8e8e93" font-size="12" text-anchor="middle">React · TS · Vite</text>
+  <line x1="660" y1="222" x2="830" y2="222" stroke="#2997ff" stroke-width="2"/>
+  <polygon points="830,216 842,222 830,228" fill="#2997ff"/>
+  <text x="746" y="212" fill="#8e8e93" font-size="11" text-anchor="middle">HTTPS / WSS · tailnet</text>
+  <rect x="844" y="190" width="220" height="64" rx="12" fill="#1c1c1e" stroke="#2997ff"/>
+  <text x="954" y="218" fill="#fff" font-size="15" font-weight="600" text-anchor="middle">hub</text>
+  <text x="954" y="238" fill="#8e8e93" font-size="12" text-anchor="middle">Node · SQLite (WAL) · systemd</text>
+
+  <!-- planes -->
+  <rect x="460" y="300" width="290" height="190" rx="14" fill="#141416" stroke="#2a2a2c"/>
+  <text x="480" y="332" fill="#fff" font-size="16" font-weight="600">Hub plane</text>
+  <text x="480" y="358" fill="#d1d1d6" font-size="13">collector every 180s → /ingest</text>
+  <text x="480" y="382" fill="#d1d1d6" font-size="13">append-only, deterministic ids</text>
+  <text x="480" y="406" fill="#d1d1d6" font-size="13">on-disk outbox — nothing lost</text>
+  <text x="480" y="430" fill="#d1d1d6" font-size="13">/rollup → Today screen</text>
+  <text x="480" y="466" fill="#8e8e93" font-size="12">git · heartbeats · sessions</text>
+
+  <rect x="774" y="300" width="290" height="190" rx="14" fill="#141416" stroke="#2a2a2c"/>
+  <text x="794" y="332" fill="#fff" font-size="16" font-weight="600">Device plane</text>
+  <text x="794" y="358" fill="#d1d1d6" font-size="13">Agent — claude -p stream-json</text>
+  <text x="794" y="382" fill="#d1d1d6" font-size="13">Shell — one command, one card</text>
+  <text x="794" y="406" fill="#d1d1d6" font-size="13">Terminal — xterm.js → tmux</text>
+  <text x="794" y="430" fill="#d1d1d6" font-size="13">spawn(file, args), allowlisted</text>
+  <text x="794" y="466" fill="#8e8e93" font-size="12">creds never leave the device</text>
+
+  <line x1="954" y1="254" x2="954" y2="296" stroke="#3a3a3c" stroke-width="2"/>
+  <line x1="605" y1="276" x2="954" y2="276" stroke="#3a3a3c" stroke-width="2"/>
+  <line x1="605" y1="276" x2="605" y2="296" stroke="#3a3a3c" stroke-width="2"/>
+
+  <text x="460" y="536" fill="#8e8e93" font-size="13">v0.2 → v0.8 in 48 hours · 147 tests · built solo with Claude Code</text>
+</svg>
