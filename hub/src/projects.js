@@ -67,9 +67,10 @@ export function teamSummary(people) {
   return judged.length ? { onTrack: judged.filter((p) => p.onTrack).length, judged: judged.length } : null;
 }
 
-/** This person's PRs touched since Monday 00:00 KST (penalty-bot's lenient rule). */
+/** This person's PRs touched since Monday 00:00 KST (penalty-bot's lenient rule).
+    No GitHub login = can't check → null, never [] ("no PRs"). */
 export function filterPrs(pulls, login, startMs) {
-  if (!login) return [];
+  if (!login) return null;
   const me = login.toLowerCase();
   return pulls
     .filter(({ pr }) => pr.user?.login?.toLowerCase() === me && Date.parse(pr.updated_at) >= startMs)
@@ -87,7 +88,8 @@ export function mapMessage(m) {
     author: m.author?.global_name ?? m.author?.username ?? '?',
     content: m.content ?? '',
     ts: m.timestamp,
-    attachments: m.attachments?.length ?? 0,
+    // Embed-only bot posts have empty content; count embeds so they don't render as blank cards.
+    attachments: (m.attachments?.length ?? 0) + (m.embeds?.length ?? 0),
   };
 }
 
@@ -126,6 +128,7 @@ async function teamSections(project, ctx, monday, startMs) {
   let cfg;
   try {
     cfg = JSON.parse(await ctx.readFn(path.join(dir, 'config.json')));
+    if (!Array.isArray(cfg?.people) || !Array.isArray(cfg.repos ?? [])) throw new Error('config.json: people/repos must be arrays');
   } catch (e) {
     ctx.onError('team', e);
     return { ...unconfigured, team: { state: 'error', summary: null, people: [] } };
@@ -155,7 +158,7 @@ async function teamSections(project, ctx, monday, startMs) {
 
   const people = (cfg.people ?? []).map((p) => ({
     name: p.name,
-    github: p.github ?? null,
+    github: p.github || null,
     mode: modeFor(p, monday, cfg.plan_until ?? ''),
     ...summarizePerson(weeks, p.name),
     prs: pulls && filterPrs(pulls, p.github, startMs),
@@ -194,5 +197,7 @@ export async function getProject(project, {
 /** Row for the Projects list. Discord timestamps share one ISO format, so string max works. */
 export function listItem(d) {
   const ts = d.discord.channels.flatMap((c) => c.messages.map((m) => m.ts)).sort().at(-1) ?? null;
-  return { id: d.id, name: d.name, summary: d.team.summary, lastMessageAt: ts };
+  // Carry the state so a broken source never reads as "not judged yet" on the list.
+  const state = d.team.state !== 'ok' ? d.team.state : d.ledger.state === 'error' ? 'error' : 'ok';
+  return { id: d.id, name: d.name, state, summary: d.team.summary, lastMessageAt: ts };
 }

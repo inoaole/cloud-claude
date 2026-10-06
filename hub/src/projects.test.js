@@ -81,8 +81,9 @@ test('filterPrs: 작성자 대소문자 무시, 주 경계, merged 판정, 라�
   ]);
 });
 
-test('github 가 비어 있는 팀원은 터지지 않고 빈 목록', () => {
-  assert.deepEqual(filterPrs([{ repo: 'o/r_web', pr: pr({}) }], undefined, start), []);
+test('github 가 비어 있는 팀원은 터지지 않고 null — "PR 없음" 으로 위장하지 않는다', () => {
+  assert.equal(filterPrs([{ repo: 'o/r_web', pr: pr({}) }], undefined, start), null);
+  assert.equal(filterPrs([{ repo: 'o/r_web', pr: pr({}) }], '', start), null);
 });
 
 // ── Discord ───────────────────────────────────────────────────────────────────
@@ -163,7 +164,7 @@ test('정상: 팀 요약, 사람별 모드·PR·이력, 채널별 메시지', as
   assert.equal(sy.onTrack, false);
   assert.deepEqual([d.ledger.state, d.github.state, d.discord.state], ['ok', 'ok', 'ok']);
   assert.deepEqual(d.discord.channels.map((c) => c.messages[0].id), ['m2', 'm1']);
-  assert.deepEqual(listItem(d), { id: 'mabc', name: 'Unikey', summary: { onTrack: 1, judged: 2 }, lastMessageAt: '2026-10-07T00:00:00.000000+00:00' });
+  assert.deepEqual(listItem(d), { id: 'mabc', name: 'Unikey', state: 'ok', summary: { onTrack: 1, judged: 2 }, lastMessageAt: '2026-10-07T00:00:00.000000+00:00' });
 });
 
 test('GitHub 실패(레포 하나 404 포함)는 error + prs null — "PR 없음" 으로 위장하지 않는다', async () => {
@@ -213,5 +214,33 @@ test('소스가 하나도 없는 프로젝트(SWYP)는 전부 unconfigured', asy
   const d = await run({ project: { id: 'swyp', name: 'SWYP 7기' } });
   assert.deepEqual([d.team.state, d.ledger.state, d.github.state, d.discord.state],
     ['unconfigured', 'unconfigured', 'unconfigured', 'unconfigured']);
-  assert.deepEqual(listItem(d), { id: 'swyp', name: 'SWYP 7기', summary: null, lastMessageAt: null });
+  assert.deepEqual(listItem(d), { id: 'swyp', name: 'SWYP 7기', state: 'unconfigured', summary: null, lastMessageAt: null });
+});
+
+// ── 최종 리뷰 수정 ────────────────────────────────────────────────────────────
+
+test('mapMessage: 임베드도 첨부로 센다 (봇 메시지가 빈 카드가 되지 않게)', () => {
+  assert.equal(mapMessage({ id: '3', author: { username: 'b' }, content: '', timestamp: 'T', embeds: [{}] }).attachments, 1);
+});
+
+test('listItem 은 섹션 상태를 실어 보낸다: 오류·미연결이 "판정 없음" 으로 위장하지 않는다', async () => {
+  assert.equal(listItem(await run()).state, 'ok');
+  assert.equal(listItem(await run({ readFn: enoent })).state, 'error');
+  const badLedger = await run({ readFn: files({ '/pb/config.json': JSON.stringify(cfg), '/pb/ledger.json': '{nope' }) });
+  assert.equal(listItem(badLedger).state, 'error');
+  assert.equal(listItem(await run({ project: { id: 'swyp', name: 'S' } })).state, 'unconfigured');
+});
+
+test('config.json 모양이 틀려도 throw 하지 않고 team error', async () => {
+  for (const body of ['null', '{"people": 5}', '{"people": [], "repos": "x"}']) {
+    const d = await run({ readFn: files({ '/pb/config.json': body }) });
+    assert.equal(d.team.state, 'error', body);
+  }
+});
+
+test('github 가 빈 문자열인 팀원은 github null, prs null', async () => {
+  const c = { ...cfg, people: [{ name: '새', github: '' }] };
+  const d = await run({ readFn: files({ '/pb/config.json': JSON.stringify(c) }) });
+  assert.equal(d.team.people[0].github, null);
+  assert.equal(d.team.people[0].prs, null);
 });

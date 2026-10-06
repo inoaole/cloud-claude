@@ -73,7 +73,7 @@ export function ProjectList() {
           title={p.name}
           subtitle={
             <>
-              {summaryText(p.summary)}
+              {p.state === 'ok' ? summaryText(p.summary) : SECTION_TEXT[p.state]}
               {p.lastMessageAt && <> · 마지막 메시지 <span className={styles.est}>{ago(p.lastMessageAt)}</span></>}
             </>
           }
@@ -87,6 +87,7 @@ export function ProjectList() {
 function prsLine(p: Person, github: SourceState) {
   if (p.mode === 'exempt') return <span className={styles.quiet}>휴식 중</span>;
   if (p.prs === null) {
+    if (!p.github) return <span className={styles.warn}>GitHub 아이디 없음</span>;
     return <span className={styles.warn}>{github === 'unconfigured' ? 'GitHub 연결 안 됨' : 'PR 확인 불가'}</span>;
   }
   if (p.prs.length === 0) return <span className={styles.quiet}>이번 주 PR 없음</span>;

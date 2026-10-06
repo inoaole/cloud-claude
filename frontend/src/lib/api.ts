@@ -313,7 +313,7 @@ export interface ProjectDetailData {
   github: { state: SourceState };
   discord: { state: SourceState; channels: DiscordChannel[] };
 }
-export interface ProjectListItem { id: string; name: string; summary: TeamSummary | null; lastMessageAt: string | null }
+export interface ProjectListItem { id: string; name: string; state: SourceState; summary: TeamSummary | null; lastMessageAt: string | null }
 
 export async function getProjects(): Promise<ProjectListItem[]> {
   const res = await apiFetch('/api/projects');

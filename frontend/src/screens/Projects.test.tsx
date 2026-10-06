@@ -50,12 +50,23 @@ describe('ProjectList', () => {
 
   it('요약을 보여주고, 판정이 없으면 "판정 없음"', async () => {
     mockList.mockResolvedValue([
-      { id: 'mabc', name: 'Unikey', summary: { onTrack: 2, judged: 3 }, lastMessageAt: null },
-      { id: 'swyp', name: 'SWYP 7기', summary: null, lastMessageAt: null },
+      { id: 'mabc', name: 'Unikey', state: 'ok', summary: { onTrack: 2, judged: 3 }, lastMessageAt: null },
+      { id: 'swyp', name: 'SWYP 7기', state: 'ok', summary: null, lastMessageAt: null },
     ]);
     renderList();
     expect(await screen.findByText(/2\/3 on track/)).toBeInTheDocument();
     expect(screen.getByText('판정 없음')).toBeInTheDocument();
+  });
+
+  it('목록에서 오류와 미연결은 "판정 없음" 과 다른 문구', async () => {
+    mockList.mockResolvedValue([
+      { id: 'mabc', name: 'Unikey', state: 'error', summary: null, lastMessageAt: null },
+      { id: 'swyp', name: 'SWYP 7기', state: 'unconfigured', summary: null, lastMessageAt: null },
+    ]);
+    renderList();
+    expect(await screen.findByText('불러오지 못함')).toBeInTheDocument();
+    expect(screen.getByText('연결된 소스 없음')).toBeInTheDocument();
+    expect(screen.queryByText('판정 없음')).not.toBeInTheDocument();
   });
 
   it('프로젝트가 없으면 빈 상태', async () => {
@@ -86,6 +97,14 @@ describe('ProjectDetail', () => {
     renderDetail();
     expect(await screen.findAllByText('PR 확인 불가')).toHaveLength(2); // 휴식 중인 찬웅은 제외
     expect(screen.queryByText('이번 주 PR 없음')).not.toBeInTheDocument();
+  });
+
+  it('GitHub 아이디가 없는 사람은 "PR 확인 불가" 가 아니라 아이디 없음', async () => {
+    const d = detail();
+    d.team.people = [{ ...d.team.people[1], github: null, prs: null }];
+    mockDetail.mockResolvedValue(d);
+    renderDetail();
+    expect(await screen.findByText('GitHub 아이디 없음')).toBeInTheDocument();
   });
 
   it('섹션 error 와 unconfigured 는 서로 다른 문구', async () => {
