@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   loadProjects, weekStart, modeFor, summarizePerson, teamSummary, filterPrs, mapMessage,
+  getProject, listItem,
 } from './projects.js';
 
 const kst = (iso) => Date.parse(`${iso}+09:00`);
@@ -112,4 +113,105 @@ test('loadProjects: 없으면 [], 잘못된 id·채널 id 는 거부', async () 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// ── 조립 ──────────────────────────────────────────────────────────────────────
+
+const NOW = kst('2026-10-07T09:00:00');
+const project = {
+  id: 'mabc', name: 'Unikey', penaltyBotDir: '/pb',
+  discordChannels: [{ id: '1', name: 'a' }, { id: '2', name: 'b' }],
+};
+const cfg = {
+  repos: ['o/r_web'], plan_until: '2026-10-05',
+  people: [
+    { name: '종현', github: 'inoaole', rest: ['2026-10-20', '2026-10-28'] },
+    { name: '서윤', github: 'banunas', rest: ['2026-10-13', '2026-10-28'] },
+  ],
+};
+const ledger = { weeks: { '2026-09-28': { 종현: { status: 'pass', reason: 'x' }, 서윤: { status: 'fail', reason: 'y' } } } };
+const enoent = () => Promise.reject(Object.assign(new Error('nope'), { code: 'ENOENT' }));
+const files = (map) => (f) => (f in map ? Promise.resolve(map[f]) : enoent());
+const okFiles = files({ '/pb/config.json': JSON.stringify(cfg), '/pb/ledger.json': JSON.stringify(ledger) });
+const env = { GITHUB_TOKEN: 'g', DISCORD_BOT_TOKEN: 'd' };
+const res = (body, status = 200) => Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body) });
+const ghPull = pr({ number: 30, updated_at: '2026-10-06T10:00:00+09:00' });
+const msg = (id, ts) => ({ id, author: { username: 'u' }, content: 'hi', timestamp: ts, attachments: [] });
+function router(over = {}) {
+  return (url) => {
+    for (const [frag, fn] of Object.entries(over)) if (url.includes(frag)) return fn(url);
+    if (url.includes('api.github.com')) return res([ghPull]);
+    if (url.includes('/channels/1/')) return res([msg('m2', '2026-10-07T00:00:00.000000+00:00')]);
+    if (url.includes('/channels/2/')) return res([msg('m1', '2026-10-06T00:00:00.000000+00:00')]);
+    throw new Error(`unexpected ${url}`);
+  };
+}
+const run = (over = {}) => getProject(over.project ?? project, {
+  fetchFn: over.fetchFn ?? router(), readFn: over.readFn ?? okFiles, env: over.env ?? env, now: NOW, onError: () => {},
+});
+
+test('정상: 팀 요약, 사람별 모드·PR·이력, 채널별 메시지', async () => {
+  const d = await run();
+  assert.equal(d.weekStart, '2026-10-05');
+  assert.equal(d.team.state, 'ok');
+  assert.deepEqual(d.team.summary, { onTrack: 1, judged: 2 });
+  const [jh, sy] = d.team.people;
+  assert.equal(jh.mode, 'dev');
+  assert.equal(jh.onTrack, true);
+  assert.deepEqual(jh.prs.map((p) => p.label), ['web#30']);
+  assert.deepEqual(sy.prs, []); // 정말로 PR 이 없다
+  assert.equal(sy.onTrack, false);
+  assert.deepEqual([d.ledger.state, d.github.state, d.discord.state], ['ok', 'ok', 'ok']);
+  assert.deepEqual(d.discord.channels.map((c) => c.messages[0].id), ['m2', 'm1']);
+  assert.deepEqual(listItem(d), { id: 'mabc', name: 'Unikey', summary: { onTrack: 1, judged: 2 }, lastMessageAt: '2026-10-07T00:00:00.000000+00:00' });
+});
+
+test('GitHub 실패(레포 하나 404 포함)는 error + prs null — "PR 없음" 으로 위장하지 않는다', async () => {
+  const d = await run({ fetchFn: router({ 'api.github.com': () => res({ message: 'Not Found' }, 404) }) });
+  assert.equal(d.github.state, 'error');
+  assert.equal(d.team.state, 'ok');
+  assert.ok(d.team.people.every((p) => p.prs === null));
+  const t = await run({ fetchFn: router({ 'api.github.com': () => Promise.reject(new Error('timeout')) }) });
+  assert.equal(t.github.state, 'error');
+});
+
+test('Discord 채널 하나만 실패하면 그 채널만 error, 전부 실패하면 섹션 error', async () => {
+  const one = await run({ fetchFn: router({ '/channels/2/': () => res({}, 403) }) });
+  assert.equal(one.discord.state, 'ok');
+  assert.deepEqual(one.discord.channels.map((c) => c.state), ['ok', 'error']);
+  assert.deepEqual(one.discord.channels[1].messages, []);
+  const all = await run({ fetchFn: router({ 'discord.com': () => res({}, 429) }) });
+  assert.equal(all.discord.state, 'error');
+  assert.equal(listItem(all).lastMessageAt, null);
+});
+
+test('ledger 없음은 정상(전원 null), 깨진 ledger 는 error', async () => {
+  const none = await run({ readFn: files({ '/pb/config.json': JSON.stringify(cfg) }) });
+  assert.equal(none.ledger.state, 'ok');
+  assert.ok(none.team.people.every((p) => p.onTrack === null));
+  assert.equal(none.team.summary, null);
+  const bad = await run({ readFn: files({ '/pb/config.json': JSON.stringify(cfg), '/pb/ledger.json': '{nope' }) });
+  assert.equal(bad.ledger.state, 'error');
+});
+
+test('penalty-bot config 를 못 읽으면 team error, 사람 없음', async () => {
+  const d = await run({ readFn: enoent });
+  assert.equal(d.team.state, 'error');
+  assert.deepEqual(d.team.people, []);
+});
+
+test('토큰이 없으면 unconfigured 이고 외부 호출을 하지 않는다', async () => {
+  let calls = 0;
+  const d = await run({ env: {}, fetchFn: () => { calls += 1; return res([]); } });
+  assert.equal(calls, 0);
+  assert.equal(d.github.state, 'unconfigured');
+  assert.equal(d.discord.state, 'unconfigured');
+  assert.ok(d.team.people.every((p) => p.prs === null));
+});
+
+test('소스가 하나도 없는 프로젝트(SWYP)는 전부 unconfigured', async () => {
+  const d = await run({ project: { id: 'swyp', name: 'SWYP 7기' } });
+  assert.deepEqual([d.team.state, d.ledger.state, d.github.state, d.discord.state],
+    ['unconfigured', 'unconfigured', 'unconfigured', 'unconfigured']);
+  assert.deepEqual(listItem(d), { id: 'swyp', name: 'SWYP 7기', summary: null, lastMessageAt: null });
 });

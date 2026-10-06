@@ -5,6 +5,7 @@
 // Every source reports ok | error | unconfigured on its own: a failed fetch must never render
 // as "no activity", and a missing ledger must never render as "everyone passed".
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { kstParts } from './market.js';
 
 const ID_RE = /^[a-z0-9-]{1,32}$/;
@@ -88,4 +89,110 @@ export function mapMessage(m) {
     ts: m.timestamp,
     attachments: m.attachments?.length ?? 0,
   };
+}
+
+const TIMEOUT_MS = 8000;
+const UA = 'cloud-claude-hub';
+
+async function getJson(fetchFn, url, headers) {
+  const res = await fetchFn(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  if (!res.ok) throw Object.assign(new Error(`http ${res.status}`), { status: res.status });
+  return res.json();
+}
+
+async function fetchPulls(fetchFn, token, repos, startMs) {
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': UA };
+  const out = [];
+  for (const repo of repos) {
+    for (let page = 1; ; page += 1) {
+      const batch = await getJson(fetchFn,
+        `https://api.github.com/repos/${repo}/pulls?state=all&sort=updated&direction=desc&per_page=100&page=${page}`, headers);
+      out.push(...batch.map((pr) => ({ repo, pr })));
+      if (batch.length < 100 || Date.parse(batch.at(-1).updated_at) < startMs) break;
+    }
+  }
+  return out;
+}
+
+async function teamSections(project, ctx, monday, startMs) {
+  const unconfigured = {
+    team: { state: 'unconfigured', summary: null, people: [] },
+    ledger: { state: 'unconfigured' },
+    github: { state: 'unconfigured' },
+  };
+  if (!project.penaltyBotDir) return unconfigured;
+  const dir = project.penaltyBotDir;
+
+  let cfg;
+  try {
+    cfg = JSON.parse(await ctx.readFn(path.join(dir, 'config.json')));
+  } catch (e) {
+    ctx.onError('team', e);
+    return { ...unconfigured, team: { state: 'error', summary: null, people: [] } };
+  }
+
+  // No ledger yet = the judge has never run. That is normal, not an error.
+  let weeks = {};
+  let ledger = { state: 'ok' };
+  try {
+    weeks = JSON.parse(await ctx.readFn(path.join(dir, 'ledger.json'))).weeks ?? {};
+  } catch (e) {
+    if (e.code !== 'ENOENT') { ledger = { state: 'error' }; ctx.onError('ledger', e); }
+  }
+
+  // null = could not check. Never collapse it into [] ("no PRs").
+  let pulls = null;
+  let github = { state: 'unconfigured' };
+  if (ctx.env.GITHUB_TOKEN) {
+    try {
+      pulls = await fetchPulls(ctx.fetchFn, ctx.env.GITHUB_TOKEN, cfg.repos ?? [], startMs);
+      github = { state: 'ok' };
+    } catch (e) {
+      github = { state: 'error' };
+      ctx.onError('github', e);
+    }
+  }
+
+  const people = (cfg.people ?? []).map((p) => ({
+    name: p.name,
+    github: p.github ?? null,
+    mode: modeFor(p, monday, cfg.plan_until ?? ''),
+    ...summarizePerson(weeks, p.name),
+    prs: pulls && filterPrs(pulls, p.github, startMs),
+  }));
+  return { team: { state: 'ok', summary: teamSummary(people), people }, ledger, github };
+}
+
+async function discordSection(project, ctx) {
+  const chans = project.discordChannels ?? [];
+  const token = ctx.env.DISCORD_BOT_TOKEN;
+  if (!chans.length || !token) return { state: 'unconfigured', channels: [] };
+  const headers = { Authorization: `Bot ${token}`, 'User-Agent': UA };
+  const channels = await Promise.all(chans.map(async (ch) => {
+    try {
+      const msgs = await getJson(ctx.fetchFn, `https://discord.com/api/v10/channels/${ch.id}/messages?limit=50`, headers);
+      return { id: ch.id, name: ch.name, state: 'ok', messages: msgs.map(mapMessage) };
+    } catch (e) {
+      ctx.onError('discord', e);
+      return { id: ch.id, name: ch.name, state: 'error', messages: [] };
+    }
+  }));
+  return { state: channels.some((c) => c.state === 'ok') ? 'ok' : 'error', channels };
+}
+
+/** Assemble one project. Never throws — every failure is a section state. */
+export async function getProject(project, {
+  fetchFn = fetch, readFn = (f) => readFile(f, 'utf8'), env = process.env, now = Date.now(), onError = () => {},
+} = {}) {
+  const ctx = { fetchFn, readFn, env, onError };
+  const monday = weekStart(now);
+  const startMs = Date.parse(`${monday}T00:00:00+09:00`);
+  const [teamPart, discord] = await Promise.all([teamSections(project, ctx, monday, startMs), discordSection(project, ctx)]);
+  return { id: project.id, name: project.name, weekStart: monday, ...teamPart, discord };
+}
+
+/** Row for the Projects list. Discord timestamps share one ISO format, so string max works. */
+export function listItem(d) {
+  const ts = d.discord.channels.flatMap((c) => c.messages.map((m) => m.ts)).sort().at(-1) ?? null;
+  return { id: d.id, name: d.name, summary: d.team.summary, lastMessageAt: ts };
 }
