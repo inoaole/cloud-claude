@@ -1,0 +1,11 @@
+[
+  {
+    "id": "mabc",
+    "name": "Unikey",
+    "penaltyBotDir": "/home/ubuntu/penalty-bot",
+    "discordChannels": [
+      { "id": "1482547310591348769", "name": "벌금bot" }
+    ]
+  },
+  { "id": "swyp", "name": "SWYP 7기" }
+]
