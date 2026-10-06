@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProjectDetail, ProjectList } from './Projects';
 import { getProject, getProjects, type ProjectDetailData } from '../lib/api';
+import { TABS } from '../lib/tabs';
 
 vi.mock('../lib/api', () => ({ getProjects: vi.fn(), getProject: vi.fn() }));
 const mockList = vi.mocked(getProjects);
@@ -110,5 +111,11 @@ describe('ProjectDetail', () => {
     await userEvent.click(await screen.findByRole('tab', { name: '벌금bot' }));
     expect(screen.getByText('불러오지 못함')).toBeInTheDocument();
     expect(screen.queryByText('<b>x</b>')).not.toBeInTheDocument();
+  });
+});
+
+describe('tabs', () => {
+  it('Growth 자리에 Projects', () => {
+    expect(TABS.map((t) => t.label)).toEqual(['Today', 'Market', 'Timeline', 'Projects', 'Machines', 'Settings']);
   });
 });

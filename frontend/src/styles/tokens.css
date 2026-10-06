@@ -31,17 +31,4 @@
   /* Safe-area shorthands (0px fallback off-device / in the browser) */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
-
-  /* Growth-only palette — used ONLY on the Growth screen, never in chrome.
-     Muted categorical project colors + a dark Action-Blue heat ramp. */
-  --growth-p1: #6b8caf;
-  --growth-p2: #7fae8c;
-  --growth-p3: #b39a6b;
-  --growth-p4: #a97fae;
-  --growth-p5: #ae7f8c;
-  --heat-0: #16181c;
-  --heat-1: #103049;
-  --heat-2: #0d4a7a;
-  --heat-3: #0066cc;
-  --heat-4: #2997ff;
 }

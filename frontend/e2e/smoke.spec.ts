@@ -13,7 +13,7 @@ test('unauth surface: unlock renders, keypad works, routes stay gated', async ({
   await expect(filled).toHaveCount(2);
 
   // Deep-linking to a protected route while unauthed still shows the gate, not the app.
-  await page.goto('/growth');
+  await page.goto('/projects');
   await expect(page.getByText('Enter PIN to unlock')).toBeVisible();
 
   // A hard refresh keeps us gated (no client-only route state leaking through).
