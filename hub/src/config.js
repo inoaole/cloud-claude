@@ -36,6 +36,8 @@ export const config = {
   devicesFile: process.env.DEVICES_FILE || path.join(repoRoot, 'devices.json'),
   // Projects tab (2026-10-07). Gitignored like devices.json; see projects.example.json.
   projectsFile: process.env.PROJECTS_FILE || path.join(repoRoot, 'projects.json'),
+  // Projects PM view: the brief runner (hub/src/brief.js) writes <id>.json here; the hub only reads.
+  briefsDir: process.env.BRIEFS_DIR || path.join(repoRoot, 'data', 'briefs'),
   // Hub-plane SQLite timeline (Sprint 5). Runtime data, gitignored; overridable for tests/deploy.
   dbFile: process.env.DB_FILE || path.join(repoRoot, 'data', 'timeline.db'),
   // Terminal relay (Sprint 3). The hub-only SSH key for classic-SSH (Mac) targets, and

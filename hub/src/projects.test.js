@@ -76,8 +76,8 @@ test('filterPrs: 작성자 대소문자 무시, 주 경계, merged 판정, 라�
     { repo: 'uni-keyyy/uni-keyyy_api', pr: pr({ number: 4 }) }, // 월 00:00 정각
   ];
   assert.deepEqual(filterPrs(pulls, 'inoaole', start), [
-    { label: 'web#30', title: 't', url: 'u', state: 'merged' },
-    { label: 'api#4', title: 't', url: 'u', state: 'open' },
+    { label: 'web#30', title: 't', url: 'u', state: 'merged', repo: 'uni-keyyy/uni-keyyy_web', number: 30 },
+    { label: 'api#4', title: 't', url: 'u', state: 'open', repo: 'uni-keyyy/uni-keyyy_api', number: 4 },
   ]);
 });
 
@@ -151,6 +151,8 @@ const run = (over = {}) => getProject(over.project ?? project, {
   fetchFn: over.fetchFn ?? router(), readFn: over.readFn ?? okFiles, env: over.env ?? env, now: NOW, onError: () => {},
 });
 
+const pick = ({ id, name, state, summary, lastMessageAt }) => ({ id, name, state, summary, lastMessageAt });
+
 test('정상: 팀 요약, 사람별 모드·PR·이력, 채널별 메시지', async () => {
   const d = await run();
   assert.equal(d.weekStart, '2026-10-05');
@@ -164,7 +166,7 @@ test('정상: 팀 요약, 사람별 모드·PR·이력, 채널별 메시지', as
   assert.equal(sy.onTrack, false);
   assert.deepEqual([d.ledger.state, d.github.state, d.discord.state], ['ok', 'ok', 'ok']);
   assert.deepEqual(d.discord.channels.map((c) => c.messages[0].id), ['m2', 'm1']);
-  assert.deepEqual(listItem(d), { id: 'mabc', name: 'Unikey', state: 'ok', summary: { onTrack: 1, judged: 2 }, lastMessageAt: '2026-10-07T00:00:00.000000+00:00' });
+  assert.deepEqual(pick(listItem(d)), { id: 'mabc', name: 'Unikey', state: 'ok', summary: { onTrack: 1, judged: 2 }, lastMessageAt: '2026-10-07T00:00:00.000000+00:00' });
 });
 
 test('GitHub 실패(레포 하나 404 포함)는 error + prs null — "PR 없음" 으로 위장하지 않는다', async () => {
@@ -214,7 +216,7 @@ test('소스가 하나도 없는 프로젝트(SWYP)는 전부 unconfigured', asy
   const d = await run({ project: { id: 'swyp', name: 'SWYP 7기' } });
   assert.deepEqual([d.team.state, d.ledger.state, d.github.state, d.discord.state],
     ['unconfigured', 'unconfigured', 'unconfigured', 'unconfigured']);
-  assert.deepEqual(listItem(d), { id: 'swyp', name: 'SWYP 7기', state: 'unconfigured', summary: null, lastMessageAt: null });
+  assert.deepEqual(pick(listItem(d)), { id: 'swyp', name: 'SWYP 7기', state: 'unconfigured', summary: null, lastMessageAt: null });
 });
 
 // ── 최종 리뷰 수정 ────────────────────────────────────────────────────────────
@@ -243,4 +245,86 @@ test('github 가 빈 문자열인 팀원은 github null, prs null', async () => 
   const d = await run({ readFn: files({ '/pb/config.json': JSON.stringify(c) }) });
   assert.equal(d.team.people[0].github, null);
   assert.equal(d.team.people[0].prs, null);
+});
+
+// ── PM 뷰: 계획 · 요약 ─────────────────────────────────────────────────────────
+
+const schedule = {
+  phases: [{ name: 'W1', start: '2026-10-05', end: '2026-10-12' }],
+  versions: [{ id: '0.0.3', due: '2026-10-09', goal: '한 줄 관통', features: [
+    { name: 'CRUD', owner: '종현', issues: ['o/r_api#4'] },
+    { name: 'PRD', owner: '서윤', issues: [] },
+  ] }],
+};
+const pmProject = { ...project, schedule: { repo: 'o/Unikey-outline', path: '기획/schedule.json' } };
+function pmRouter(over = {}) {
+  return router({
+    'contents/': () => res(schedule),
+    'repos/o/r_api/issues': () => res([{ number: 4, state: 'open' }, { number: 9, state: 'open', body: 'Closes #4', pull_request: {} }]),
+    ...over,
+  });
+}
+const brief = (over = {}) => JSON.stringify({ generatedAt: '2026-10-07T00:00:00Z', tldr: [{ day: '2026-10-07', count: 3, items: [{ kind: '결정', text: 'x' }] }],
+  reviews: { 'o/r_web#30@abc': { label: 'web#30', author: '종현', url: 'u', title: 't', verdict: 'suspect', signals: [], question: 'q?' } }, ...over });
+const pmFiles = (extra = {}) => files({ '/pb/config.json': JSON.stringify(cfg), '/pb/ledger.json': JSON.stringify(ledger), ...extra });
+const pmRun = (over = {}) => getProject(over.project ?? pmProject, {
+  fetchFn: over.fetchFn ?? pmRouter(), readFn: over.readFn ?? pmFiles({ '/b/mabc.json': brief() }),
+  env, now: over.now ?? NOW, onError: () => {}, briefsDir: '/b',
+});
+
+test('계획: 현재 버전·기능 상태·마일스톤, 한글 경로는 인코딩', async () => {
+  const urls = [];
+  const d = await pmRun({ fetchFn: (u, o) => { urls.push(u); return pmRouter()(u, o); } });
+  assert.ok(urls.some((u) => u.endsWith('/repos/o/Unikey-outline/contents/%EA%B8%B0%ED%9A%8D/schedule.json')));
+  assert.equal(d.plan.state, 'ok');
+  assert.equal(d.plan.today, '2026-10-07');
+  assert.deepEqual(d.plan.current, { id: '0.0.3', due: '2026-10-09', goal: '한 줄 관통', daysLeft: 2, features: [
+    { name: 'CRUD', owner: '종현', status: 'pr', pr: 'api#9' },
+    { name: 'PRD', owner: '서윤', status: 'unlinked', pr: null },
+  ] });
+  assert.deepEqual(d.plan.milestones, [{ id: '0.0.3', due: '2026-10-09', done: false }]);
+  assert.deepEqual(d.health, { level: 'risk', why: '0.0.3까지 2일, PRD 진행 안 보임' });
+});
+
+test('계획: schedule 없음 → unconfigured, 404·형식 오류 → error, 이슈 실패 → status null', async () => {
+  assert.equal((await pmRun({ project: project })).plan.state, 'unconfigured');
+  assert.equal((await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({}, 404) }) })).plan.state, 'error');
+  assert.equal((await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({ phases: 'x' }) }) })).plan.state, 'error');
+  const d = await pmRun({ fetchFn: pmRouter({ 'repos/o/r_api/issues': () => res({}, 500) }) });
+  assert.equal(d.plan.current.features[0].status, null);
+  assert.equal(d.health.level, 'unknown');
+});
+
+test('요약: 정상 / 없음 / 6시간 경과 / 깨짐 / 예전 형식', async () => {
+  const ok = await pmRun();
+  assert.equal(ok.brief.state, 'ok');
+  assert.deepEqual(ok.brief.reviews.map((r) => r.key), ['o/r_web#30@abc']);
+  assert.ok(ok.exceptions.some((e) => e.kind === 'review' && e.label === 'web#30'));
+  assert.equal((await pmRun({ readFn: pmFiles() })).brief.state, 'unconfigured');
+  const stale = await pmRun({ readFn: pmFiles({ '/b/mabc.json': brief({ generatedAt: '2026-10-06T00:00:00Z' }) }) });
+  assert.equal(stale.brief.state, 'error');
+  assert.equal((await pmRun({ readFn: pmFiles({ '/b/mabc.json': '{nope' }) })).brief.state, 'error');
+  const old = await pmRun({ readFn: pmFiles({ '/b/mabc.json': JSON.stringify({ generatedAt: '2026-10-07T00:00:00Z' }) }) });
+  assert.deepEqual([old.brief.state, old.brief.tldr, old.brief.reviews], ['ok', [], []]);
+});
+
+test('listItem: 건강·현재 버전·남은 일수·예외 수', async () => {
+  const { health, currentId, daysLeft, exceptionCount } = listItem(await pmRun());
+  // 예외 3개 = 서윤 stalled(PRD 담당, 이번 주 PR 0) + 서윤 failed(지난 판정) + web#30 review
+  assert.deepEqual({ level: health.level, currentId, daysLeft, exceptionCount }, { level: 'risk', currentId: '0.0.3', daysLeft: 2, exceptionCount: 3 });
+});
+
+test('loadProjects: schedule 형식 검증', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cc-proj-'));
+  const f = path.join(dir, 'projects.json');
+  try {
+    writeFileSync(f, JSON.stringify([{ id: 'mabc', name: 'U', schedule: { repo: 'o/Unikey-outline', path: '기획/schedule.json' } }]));
+    assert.equal((await loadProjects(f)).length, 1);
+    writeFileSync(f, JSON.stringify([{ id: 'mabc', name: 'U', schedule: { repo: '../x', path: 'a.json' } }]));
+    await assert.rejects(loadProjects(f), /bad schedule/);
+    writeFileSync(f, JSON.stringify([{ id: 'mabc', name: 'U', schedule: { repo: 'o/r', path: '../a.json' } }]));
+    await assert.rejects(loadProjects(f), /bad schedule/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

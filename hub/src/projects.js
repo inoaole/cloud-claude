@@ -7,6 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { kstParts } from './market.js';
+import { parseSchedule, daysBetween, featureStatus, currentVersion, exceptionsOf, healthOf } from './plan.js';
 
 const ID_RE = /^[a-z0-9-]{1,32}$/;
 const CHANNEL_RE = /^\d{1,20}$/;
@@ -32,6 +33,11 @@ export async function loadProjects(file) {
     // Channel ids are interpolated into a Discord URL — digits only.
     for (const ch of p.discordChannels ?? []) {
       if (!CHANNEL_RE.test(ch?.id ?? '')) throw new Error(`bad channel id: ${JSON.stringify(ch?.id)}`);
+    }
+    // schedule.repo/path are interpolated into a GitHub URL.
+    if (p.schedule && (!/^[\w.-]+\/[\w.-]+$/.test(p.schedule.repo ?? '') || !p.schedule.path
+      || `${p.schedule.repo}/${p.schedule.path}`.split('/').includes('..'))) {
+      throw new Error(`bad schedule: ${JSON.stringify(p.schedule)}`);
     }
   }
   return list;
@@ -79,6 +85,8 @@ export function filterPrs(pulls, login, startMs) {
       title: pr.title,
       url: pr.html_url,
       state: pr.merged_at ? 'merged' : pr.state,
+      repo,
+      number: pr.number,
     }));
 }
 
@@ -96,14 +104,16 @@ export function mapMessage(m) {
 const TIMEOUT_MS = 8000;
 const UA = 'cloud-claude-hub';
 
-async function getJson(fetchFn, url, headers) {
+export async function getJson(fetchFn, url, headers) {
   const res = await fetchFn(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw Object.assign(new Error(`http ${res.status}`), { status: res.status });
   return res.json();
 }
 
+export const ghHeaders = (token) => ({ Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': UA });
+
 async function fetchPulls(fetchFn, token, repos, startMs) {
-  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': UA };
+  const headers = ghHeaders(token);
   const out = [];
   for (const repo of repos) {
     for (let page = 1; ; page += 1) {
@@ -183,15 +193,76 @@ async function discordSection(project, ctx) {
   return { state: channels.some((c) => c.state === 'ok') ? 'ok' : 'error', channels };
 }
 
+async function planSection(project, ctx, today) {
+  const token = ctx.env.GITHUB_TOKEN;
+  if (!project.schedule || !token) return { state: 'unconfigured' };
+  const { repo, path: file } = project.schedule;
+  let schedule;
+  try {
+    const url = `https://api.github.com/repos/${repo}/contents/${file.split('/').map(encodeURIComponent).join('/')}`;
+    schedule = parseSchedule(await getJson(ctx.fetchFn, url, { ...ghHeaders(token), Accept: 'application/vnd.github.raw+json' }));
+  } catch (e) {
+    ctx.onError('plan', e);
+    return { state: 'error' };
+  }
+  const repos = [...new Set(schedule.versions.flatMap((v) => v.features.flatMap((f) => f.issues.map((r) => r.split('#')[0]))))];
+  // ponytail: first 100 issues+PRs per repo; paginate when a repo outgrows it.
+  const items = new Map(await Promise.all(repos.map(async (r) => {
+    try {
+      return [r, await getJson(ctx.fetchFn, `https://api.github.com/repos/${r}/issues?state=all&per_page=100`, ghHeaders(token))];
+    } catch (e) {
+      ctx.onError('issues', e);
+      return [r, null];
+    }
+  })));
+  const versions = schedule.versions.map((v) => ({
+    ...v, features: v.features.map((f) => ({ name: f.name, owner: f.owner, ...featureStatus(f, items) })),
+  }));
+  const cur = currentVersion(versions, today);
+  return {
+    state: 'ok', today, phases: schedule.phases,
+    milestones: versions.map((v) => ({ id: v.id, due: v.due, done: v.features.every((f) => f.status === 'done') })),
+    current: cur && { id: cur.id, due: cur.due, goal: cur.goal, daysLeft: daysBetween(today, cur.due), features: cur.features },
+  };
+}
+
+const STALE_MS = 6 * 3600e3;
+
+/** The batch runner's output. A runner that stopped must read as broken, never as a quiet day. */
+async function briefSection(project, ctx, now) {
+  if (!ctx.briefsDir) return { state: 'unconfigured' };
+  let b;
+  try {
+    b = JSON.parse(await ctx.readFn(path.join(ctx.briefsDir, `${project.id}.json`)));
+  } catch (e) {
+    if (e.code === 'ENOENT') return { state: 'unconfigured' };
+    ctx.onError('brief', e);
+    return { state: 'error' };
+  }
+  const generatedAt = b?.generatedAt ?? null;
+  if (!(now - Date.parse(generatedAt ?? '') < STALE_MS)) return { state: 'error', generatedAt };
+  return {
+    state: 'ok', generatedAt,
+    tldr: Array.isArray(b.tldr) ? b.tldr : [],
+    reviews: Object.entries(b.reviews ?? {}).map(([key, r]) => ({ key, ...r })),
+  };
+}
+
 /** Assemble one project. Never throws — every failure is a section state. */
 export async function getProject(project, {
-  fetchFn = fetch, readFn = (f) => readFile(f, 'utf8'), env = process.env, now = Date.now(), onError = () => {},
+  fetchFn = fetch, readFn = (f) => readFile(f, 'utf8'), env = process.env, now = Date.now(), onError = () => {}, briefsDir = null,
 } = {}) {
-  const ctx = { fetchFn, readFn, env, onError };
+  const ctx = { fetchFn, readFn, env, onError, briefsDir };
   const monday = weekStart(now);
   const startMs = Date.parse(`${monday}T00:00:00+09:00`);
-  const [teamPart, discord] = await Promise.all([teamSections(project, ctx, monday, startMs), discordSection(project, ctx)]);
-  return { id: project.id, name: project.name, weekStart: monday, ...teamPart, discord };
+  const today = kstParts(now).date;
+  const [teamPart, discord, plan, brief] = await Promise.all([
+    teamSections(project, ctx, monday, startMs), discordSection(project, ctx), planSection(project, ctx, today), briefSection(project, ctx, now),
+  ]);
+  const current = plan.current ?? null;
+  const exceptions = exceptionsOf({ current, people: teamPart.team.people, reviews: brief.reviews ?? [] });
+  const health = healthOf({ planState: plan.state, current, exceptions });
+  return { id: project.id, name: project.name, weekStart: monday, ...teamPart, discord, plan, health, exceptions, brief };
 }
 
 /** Row for the Projects list. Discord timestamps share one ISO format, so string max works. */
@@ -199,5 +270,8 @@ export function listItem(d) {
   const ts = d.discord.channels.flatMap((c) => c.messages.map((m) => m.ts)).sort().at(-1) ?? null;
   // Carry the state so a broken source never reads as "not judged yet" on the list.
   const state = d.team.state !== 'ok' ? d.team.state : d.ledger.state === 'error' ? 'error' : 'ok';
-  return { id: d.id, name: d.name, state, summary: d.team.summary, lastMessageAt: ts };
+  return {
+    id: d.id, name: d.name, state, summary: d.team.summary, lastMessageAt: ts,
+    health: d.health, currentId: d.plan.current?.id ?? null, daysLeft: d.plan.current?.daysLeft ?? null, exceptionCount: d.exceptions.length,
+  };
 }
