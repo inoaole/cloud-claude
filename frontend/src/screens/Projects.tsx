@@ -278,3 +278,71 @@ export function Discord({ discord }: { discord: ProjectDetailData['discord'] }) 
     </>
   );
 }
+
+export function ProjectPrs() {
+  const navigate = useNavigate();
+  const { id, state, load } = useProject();
+  const [tab, setTab] = useState<'flag' | 'ok'>('flag');
+
+  if (state.phase === 'loading') return <p className={styles.hint}>Loading…</p>;
+  if (state.phase === 'error') return <Failed retry={load} />;
+  const b = state.data.brief;
+  const back = <button type="button" className={styles.back} onClick={() => navigate(`/projects/${id}`)}>‹ {state.data.name}</button>;
+  if (b.state !== 'ok') return <>{back}<h2 className={styles.name}>이번 주 PR</h2><Group><p className={styles.section}>{BRIEF_TEXT[b.state]}</p></Group></>;
+  const flagged = b.reviews.filter((r) => r.verdict !== 'ok');
+  const fine = b.reviews.filter((r) => r.verdict === 'ok');
+  const shown = tab === 'flag' ? flagged : fine;
+  return (
+    <>
+      {back}
+      <h2 className={styles.name}>이번 주 PR</h2>
+      <div className={styles.seg}>
+        <Segmented options={[{ value: 'flag', label: `확인 필요 ${flagged.length}` }, { value: 'ok', label: `괜찮음 ${fine.length}` }]} value={tab} onChange={setTab} />
+      </div>
+      {shown.length === 0 && <Group><p className={styles.section}>{tab === 'flag' ? '확인할 PR 없음' : 'PR 없음'}</p></Group>}
+      {shown.map((r) => (
+        <Group key={r.key} header={`${r.label} · ${r.author} · ${ago(b.generatedAt)}`}>
+          <div className={styles.ex}>
+            <div className={styles.exHead}><span>{r.title}</span><VerdictBadge v={r.verdict} /></div>
+          </div>
+          {r.signals.map((s) => (
+            <div key={s.kind} className={styles.sig}>
+              <span className={`${styles.mark} ${s.ok ? '' : styles.strong}`}>{s.ok ? '✓' : '!'}</span>
+              <div>{s.kind}<div className={styles.sigDetail}>{s.detail}</div></div>
+            </div>
+          ))}
+          {r.question && <div className={styles.ex}><div className={styles.ask}><span>리뷰에서 물어볼 것</span><p className={styles.q}>"{r.question}"</p></div></div>}
+          <Cell title={<span className={styles.link}>GitHub에서 열기</span>} onClick={() => window.open(r.url, '_blank', 'noreferrer')} />
+        </Group>
+      ))}
+    </>
+  );
+}
+
+export function ProjectChat() {
+  const navigate = useNavigate();
+  const { id, state, load } = useProject();
+  const [tab, setTab] = useState<'sum' | 'raw'>('sum');
+
+  if (state.phase === 'loading') return <p className={styles.hint}>Loading…</p>;
+  if (state.phase === 'error') return <Failed retry={load} />;
+  const d = state.data;
+  const b = d.brief;
+  return (
+    <>
+      <button type="button" className={styles.back} onClick={() => navigate(`/projects/${id}`)}>‹ {d.name}</button>
+      <h2 className={styles.name}>팀 대화</h2>
+      <div className={styles.seg}>
+        <Segmented options={[{ value: 'sum', label: '요약' }, { value: 'raw', label: '원문' }]} value={tab} onChange={setTab} />
+      </div>
+      {tab === 'raw' && <Discord discord={d.discord} />}
+      {tab === 'sum' && b.state !== 'ok' && <Group><p className={styles.section}>{BRIEF_TEXT[b.state]}</p></Group>}
+      {tab === 'sum' && b.state === 'ok' && b.tldr.length === 0 && <Group><p className={styles.section}>요약할 대화 없음</p></Group>}
+      {tab === 'sum' && b.state === 'ok' && b.tldr.map((day) => (
+        <Group key={day.day} header={`${mmdd(day.day)} · ${day.count}개 → ${day.items.length}줄 · ${ago(b.generatedAt)}`}>
+          <TldrLines day={day} />
+        </Group>
+      ))}
+    </>
+  );
+}

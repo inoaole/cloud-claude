@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProjectDetail, ProjectList } from './Projects';
+import userEvent from '@testing-library/user-event';
+import { ProjectChat, ProjectDetail, ProjectList, ProjectPrs } from './Projects';
 import { ProjectTimeline } from './ProjectTimeline';
 import { getProject, getProjects, type ProjectDetailData, type ProjectListItem } from '../lib/api';
 import { TABS } from '../lib/tabs';
@@ -158,5 +159,41 @@ describe('ProjectTimeline', () => {
 describe('tabs', () => {
   it('Growth 자리에 Projects', () => {
     expect(TABS.map((t) => t.label)).toEqual(['Today', 'Market', 'Timeline', 'Projects', 'Machines', 'Settings']);
+  });
+});
+
+describe('ProjectPrs', () => {
+  beforeEach(() => mockDetail.mockReset());
+
+  it('확인 필요 먼저: 배지 · 신호 · 물어볼 것, 괜찮음은 세그먼트 뒤', async () => {
+    mockDetail.mockResolvedValue(detail());
+    renderAt('/projects/mabc/prs', <ProjectPrs />, '/projects/:id/prs');
+    expect(await screen.findByText('feat(ia): 트리')).toBeInTheDocument();
+    expect(screen.getByText('~딸깍 의심')).toBeInTheDocument();
+    expect(screen.getByText('1,840줄 한 커밋')).toBeInTheDocument();
+    expect(screen.getByText('"왜 평탄 배열?"')).toBeInTheDocument();
+    expect(screen.queryByText('feat(auth)')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: '괜찮음 1' }));
+    expect(screen.getByText('feat(auth)')).toBeInTheDocument();
+  });
+
+  it('요약이 없으면 그렇게 말한다', async () => {
+    mockDetail.mockResolvedValue(detail({ brief: { state: 'unconfigured' } }));
+    renderAt('/projects/mabc/prs', <ProjectPrs />, '/projects/:id/prs');
+    expect(await screen.findByText('요약 준비 전')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectChat', () => {
+  beforeEach(() => mockDetail.mockReset());
+
+  it('요약이 기본, 원문은 세그먼트 뒤 — 원문은 태그가 아니라 글자', async () => {
+    mockDetail.mockResolvedValue(detail());
+    renderAt('/projects/mabc/chat', <ProjectChat />, '/projects/:id/chat');
+    expect(await screen.findByText('찬웅 — OpenAI 키 없음')).toBeInTheDocument();
+    expect(screen.getByText(/47개 → 2줄/)).toBeInTheDocument();
+    expect(screen.queryByText('<b>x</b>')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: '원문' }));
+    expect(screen.getByText('<b>x</b>')).toBeInTheDocument();
   });
 });

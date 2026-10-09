@@ -8,7 +8,7 @@ import { Unlock } from './screens/Unlock';
 import { Today } from './screens/Today';
 import { Market } from './screens/Market';
 import { Timeline } from './screens/Timeline';
-import { ProjectDetail, ProjectList } from './screens/Projects';
+import { ProjectChat, ProjectDetail, ProjectList, ProjectPrs } from './screens/Projects';
 import { Machines } from './screens/Machines';
 import { DeviceConsole } from './screens/DeviceConsole';
 import { Settings } from './screens/Settings';
@@ -65,6 +65,8 @@ export function App() {
                   <Route path="/timeline" element={<Timeline />} />
                   <Route path="/projects" element={<ProjectList />} />
                   <Route path="/projects/:id" element={<ProjectDetail />} />
+                  <Route path="/projects/:id/prs" element={<ProjectPrs />} />
+                  <Route path="/projects/:id/chat" element={<ProjectChat />} />
                   <Route path="/machines" element={<Machines />} />
                   <Route path="/settings" element={<Settings />} />
                   <Route path="*" element={<Navigate to="/today" replace />} />
