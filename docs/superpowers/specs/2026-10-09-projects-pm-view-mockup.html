@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projects PM View — Mockup</title>
+<style>
+  :root {
+    --void: #000; --card: #1c1c1e; --raised: #2a2a2c; --hair: rgba(255,255,255,.10);
+    --t1: #fff; --t2: #ccc; --t3: #7a7a7a; --t4: #8a8a8a;
+    --accent: #0066cc; --link: #2997ff;
+    --sans: -apple-system, "SF Pro Text", "Apple SD Gothic Neo", system-ui, sans-serif;
+    --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b0b0c; color: var(--t1); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1760px; margin: 0 auto; padding: 32px 16px 64px; }
+  .page > h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; margin: 0 0 4px; }
+  .page > p { color: var(--t3); margin: 0 0 28px; font-size: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 36px; justify-content: center; align-items: flex-start; }
+  .col { width: 375px; max-width: 100%; }
+  .cap { margin-top: 14px; font-size: 13px; color: var(--t3); line-height: 1.55; }
+  .cap b { color: var(--t2); font-weight: 600; }
+
+  /* phone */
+  .phone { width: 375px; max-width: 100%; height: 812px; background: var(--void); border-radius: 44px; border: 1px solid #222;
+           box-shadow: 0 0 0 8px #111, 0 30px 80px rgba(0,0,0,.6); overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; }
+  .status { height: 44px; display: flex; justify-content: space-between; align-items: center; padding: 0 28px; font-size: 14px; font-weight: 600; }
+  .content { overflow-y: auto; padding: 0 16px 24px; scrollbar-width: none; }
+  .content::-webkit-scrollbar { display: none; }
+  .tabbar { height: 82px; border-top: 1px solid var(--hair); display: grid; grid-template-columns: repeat(6,1fr); padding: 8px 4px 0; background: rgba(18,18,20,.94); }
+  .tab { text-align: center; font-size: 10px; color: var(--t3); }
+  .tab i { display: block; width: 22px; height: 22px; margin: 0 auto 4px; border: 1.6px solid currentColor; border-radius: 6px; }
+  .tab.on { color: var(--accent); }
+
+  .nav { display: flex; justify-content: space-between; align-items: center; height: 44px; }
+  .back { color: var(--link); font-size: 17px; }
+  .chip-hub { font-family: var(--mono); font-size: 11px; color: var(--t3); }
+  .large { font-size: 34px; font-weight: 700; letter-spacing: -.03em; margin: 2px 0 14px; }
+
+  .mono { font-family: var(--mono); }
+  .t3 { color: var(--t3); } .t2 { color: var(--t2); }
+  .est { color: var(--t4); text-decoration: underline dotted; text-underline-offset: 3px; }
+
+  /* grouped list */
+  .gh { font-size: 13px; color: var(--t3); text-transform: none; margin: 22px 4px 7px; display: flex; justify-content: space-between; }
+  .card { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .cell { display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; border-top: 1px solid var(--hair); }
+  .cell:first-child { border-top: 0; }
+  .cell .grow { flex: 1; min-width: 0; }
+  .cell .ttl { font-size: 16px; }
+  .cell .sub { font-size: 13px; color: var(--t3); margin-top: 2px; }
+  .chev { color: #555; font-size: 18px; }
+
+  /* health */
+  .health { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border-radius: 12px; padding: 14px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; margin-top: 5px; }
+  .dot.on { background: var(--accent); box-shadow: 0 0 0 4px rgba(0,102,204,.2); }
+  .dot.risk { border: 2px solid var(--t1); background: linear-gradient(90deg, var(--t1) 50%, transparent 50%); }
+  .dot.off { border: 2px solid var(--t1); }
+  .health .v { font-size: 17px; font-weight: 700; }
+  .health .why { font-size: 14px; color: var(--t2); margin-top: 3px; line-height: 1.4; }
+
+  /* timeline */
+  .tl { background: var(--card); border-radius: 12px; padding: 14px 12px 10px; }
+  .tl svg { display: block; width: 100%; height: auto; }
+
+  /* stage track */
+  .stages { display: inline-flex; gap: 3px; }
+  .stages s { width: 14px; height: 4px; border-radius: 2px; background: #3a3a3c; text-decoration: none; }
+  .stages s.f { background: var(--t1); }
+  .stages.done s { background: var(--accent); }
+  .who { font-size: 12px; color: var(--t3); width: 30px; flex: none; }
+  .state { font-size: 12px; color: var(--t3); text-align: right; width: 78px; flex: none; }
+  .warn { font-weight: 700; color: var(--t1); }
+
+  /* exceptions */
+  .ex { padding: 12px 14px; border-top: 1px solid var(--hair); }
+  .ex:first-child { border-top: 0; }
+  .ex .h { display: flex; justify-content: space-between; font-size: 15px; }
+  .ex .b { font-size: 13px; color: var(--t2); margin-top: 4px; line-height: 1.45; }
+  .ask { margin-top: 8px; font-size: 13px; color: var(--t1); background: var(--raised); border-radius: 8px; padding: 8px 10px; }
+  .ask span { color: var(--t3); font-size: 11px; display: block; margin-bottom: 2px; }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 6px; background: var(--raised); color: var(--t2); white-space: nowrap; }
+  .badge.sus { background: #fff; color: #000; font-weight: 700; }
+
+  /* tldr */
+  .tldr .ln { display: flex; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--hair); font-size: 14px; line-height: 1.45; }
+  .tldr .ln:first-child { border-top: 0; }
+  .tldr .k { flex: none; width: 34px; font-size: 12px; color: var(--t3); padding-top: 2px; }
+  .more { display: block; text-align: right; color: var(--link); font-size: 14px; padding: 10px 14px; border-top: 1px solid var(--hair); }
+
+  .seg { display: flex; background: var(--raised); border-radius: 9px; padding: 2px; margin: 4px 0 2px; }
+  .seg div { flex: 1; text-align: center; font-size: 13px; padding: 6px 0; border-radius: 7px; color: var(--t2); }
+  .seg div.on { background: #48484a; color: #fff; font-weight: 600; }
+
+  .sig { display: flex; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--hair); font-size: 14px; }
+  .sig:first-child { border-top: 0; }
+  .sig .m { flex: none; width: 16px; text-align: center; }
+  .sig .d { color: var(--t3); font-size: 12px; margin-top: 2px; }
+  .legend { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 16px; }
+  .legend div { background: #141416; border: 1px solid #1f1f22; border-radius: 12px; padding: 14px 16px; font-size: 13px; color: var(--t2); line-height: 1.6; }
+  .legend h3 { margin: 0 0 6px; font-size: 14px; color: #fff; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Projects — PM 뷰 시안</h1>
+  <p>2026-10-09(금) 오늘 기준 · Unikey v6 일정 데이터 · DESIGN.md Personal OS 언어(다크, SF Pro/Mono, Action Blue 하나)</p>
+
+  <div class="row">
+
+    <!-- ① 목록 -->
+    <div class="col">
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●● 􀛨</span></div>
+        <div class="content">
+          <div class="nav"><span></span><span class="chip-hub">hub ● v0.9.0</span></div>
+          <div class="large">Projects</div>
+          <div class="card">
+            <div class="cell">
+              <span class="dot risk"></span>
+              <div class="grow">
+                <div class="ttl">Unikey</div>
+                <div class="sub"><b class="t2">At risk</b> · <span class="mono">0.0.3</span> D-3 · 확인 필요 2</div>
+              </div>
+              <span class="chev">›</span>
+            </div>
+            <div class="cell">
+              <span class="dot" style="border:1.5px dashed var(--t3)"></span>
+              <div class="grow">
+                <div class="ttl">SWYP 7기</div>
+                <div class="sub">연결된 소스 없음</div>
+              </div>
+              <span class="chev">›</span>
+            </div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><i></i>Today</div><div class="tab"><i></i>Market</div><div class="tab"><i></i>Timeline</div>
+          <div class="tab on"><i></i>Projects</div><div class="tab"><i></i>Machines</div><div class="tab"><i></i>Settings</div>
+        </div>
+      </div>
+      <div class="cap"><b>목록은 판정만.</b> 프로젝트마다 건강 점 하나 + 다음 버전 D-day + 내가 봐야 할 개수. 숫자 "2"가 0이면 들어갈 이유가 없다.</div>
+    </div>
+
+    <!-- ② Unikey 한 장 -->
+    <div class="col">
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●● 􀛨</span></div>
+        <div class="content">
+          <div class="nav"><span class="back">‹ Projects</span><span class="chip-hub">요약 <span class="est">~40분 전</span></span></div>
+          <div class="large" style="margin-bottom:10px">Unikey</div>
+
+          <!-- ① 판정 -->
+          <div class="health">
+            <span class="dot risk"></span>
+            <div>
+              <div class="v">At risk</div>
+              <div class="why"><span class="mono">0.0.3</span>까지 3일. PRD 슬라이스가 아직 시작 전이고, 오늘 올라온 PR 하나가 확인 필요.</div>
+            </div>
+          </div>
+
+          <!-- ② 타임라인 -->
+          <div class="gh"><span>일정</span><span class="mono">MVP D-30</span></div>
+          <div class="tl">
+            <svg viewBox="0 0 330 74" xmlns="http://www.w3.org/2000/svg" font-family="SF Mono, ui-monospace, monospace">
+              <!-- 10/9 → 11/15 = 37 days, x = 8 + d*8.7 -->
+              <!-- phases -->
+              <rect x="8" y="22" width="34.8" height="8" rx="2" fill="#3a3a3c"/>
+              <rect x="44" y="22" width="59" height="8" rx="2" fill="#3a3a3c"/>
+              <rect x="105" y="22" width="76" height="8" rx="2" fill="#1c1c1e" stroke="#3a3a3c" stroke-dasharray="2 2"/>
+              <rect x="183" y="22" width="33" height="8" rx="2" fill="#3a3a3c"/>
+              <rect x="218" y="22" width="59" height="8" rx="2" fill="#3a3a3c"/>
+              <rect x="279" y="22" width="43" height="8" rx="2" fill="#3a3a3c"/>
+              <g font-size="8" fill="#7a7a7a" text-anchor="middle">
+                <text x="25" y="16">W1</text><text x="73" y="16">S 솔로</text><text x="143" y="16">휴식</text>
+                <text x="199" y="16">W2</text><text x="247" y="16">W3</text><text x="300" y="16">런칭</text>
+              </g>
+              <!-- elapsed -->
+              <rect x="8" y="22" width="3" height="8" rx="1.5" fill="#0066cc"/>
+              <!-- today -->
+              <line x1="10" y1="6" x2="10" y2="44" stroke="#fff" stroke-width="1.2"/>
+              <text x="12" y="7" font-size="7.5" fill="#fff">오늘</text>
+              <!-- milestones -->
+              <g font-size="7.5" fill="#ccc" text-anchor="middle">
+                <path d="M10 46 l4 4 -4 4 -4 -4z" fill="#0066cc"/><text x="10" y="66">0.0.2</text>
+                <path d="M34 46 l4 4 -4 4 -4 -4z" fill="none" stroke="#fff" stroke-width="1.3"/><text x="38" y="66" fill="#fff" font-weight="700">0.0.3</text>
+                <path d="M210 46 l4 4 -4 4 -4 -4z" fill="none" stroke="#7a7a7a" stroke-width="1.3"/><text x="208" y="66">0.0.4</text>
+                <path d="M270 44 l6 6 -6 6 -6 -6z" fill="none" stroke="#fff" stroke-width="1.6"/><text x="270" y="68" fill="#fff" font-weight="700">MVP</text>
+                <path d="M322 46 l4 4 -4 4 -4 -4z" fill="none" stroke="#7a7a7a" stroke-width="1.3"/><text x="318" y="66">런칭</text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- ③ 이번 버전 -->
+          <div class="gh"><span><span class="mono">0.0.3</span> · 10/12(월) · 한 줄 관통</span><span class="mono">2/5</span></div>
+          <div class="card">
+            <div class="cell"><span class="who">종현</span><div class="grow">인증 <span class="t3">· 0.0.2</span></div><span class="stages done"><s></s><s></s><s></s><s></s></span><span class="state">머지</span></div>
+            <div class="cell"><span class="who">종현</span><div class="grow">스캐폴딩 · 0.0.1 태그</div><span class="stages done"><s></s><s></s><s></s><s></s></span><span class="state">머지</span></div>
+            <div class="cell"><span class="who">종현</span><div class="grow">기획 CRUD · 배포</div><span class="stages"><s class="f"></s><s class="f"></s><s class="f"></s><s></s></span><span class="state mono">PR #4</span></div>
+            <div class="cell"><span class="who">찬웅</span><div class="grow">IA 슬라이스</div><span class="stages"><s class="f"></s><s></s><s></s><s></s></span><span class="state">계약</span></div>
+            <div class="cell"><span class="who">서윤</span><div class="grow">PRD 슬라이스</div><span class="stages"><s></s><s></s><s></s><s></s></span><span class="state warn">시작 안 함</span></div>
+          </div>
+          <div class="cap" style="margin:6px 4px 0;font-size:11px">계약 → 슬라이스 → PR → 머지 · 퍼센트 대신 단계</div>
+
+          <!-- ④ 확인 필요 -->
+          <div class="gh"><span>확인 필요</span><span>2</span></div>
+          <div class="card">
+            <div class="ex">
+              <div class="h"><span>서윤</span><span class="t3" style="font-size:12px">이번 주 할 일 · PRD 슬라이스</span></div>
+              <div class="b">2일째 커밋·PR 없음. 계약 JSON(<span class="mono">contracts/messages.json</span>)도 아직 없음. 월요일까지 3일.</div>
+            </div>
+            <div class="ex">
+              <div class="h"><span class="mono">web#12</span><span class="badge sus">~딸깍 의심</span></div>
+              <div class="b">찬웅 · IA 트리 · 1,840줄 한 커밋 · PR 본문에 이유 없음 · 계약에 없는 필드 3개</div>
+              <div class="ask"><span>물어볼 것</span>"IA를 재귀 트리 대신 평탄 배열로 저장한 이유가 뭐야?"</div>
+            </div>
+          </div>
+
+          <!-- ⑤ 대화 요약 -->
+          <div class="gh"><span>팀 대화 · 오늘</span><span class="est">~40분 전</span></div>
+          <div class="card tldr">
+            <div class="ln"><span class="k">결정</span><span>API 계약은 <span class="mono">contracts/*.json</span>, 토요일 오전까지</span></div>
+            <div class="ln"><span class="k">막힘</span><span>찬웅 — OpenAI 키를 아직 못 받음</span></div>
+            <div class="ln"><span class="k">질문</span><span>서윤 → 종현: 세션 쿠키 이름? <span class="t3">· 답 없음 3h</span></span></div>
+            <a class="more">원문 47개 ›</a>
+          </div>
+
+          <div class="gh"><span>지난 판정</span></div>
+          <div class="card"><div class="cell"><div class="grow"><span class="t2">3명 모두 패스 · 9/28 주</span></div><span class="chev">›</span></div></div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><i></i>Today</div><div class="tab"><i></i>Market</div><div class="tab"><i></i>Timeline</div>
+          <div class="tab on"><i></i>Projects</div><div class="tab"><i></i>Machines</div><div class="tab"><i></i>Settings</div>
+        </div>
+      </div>
+      <div class="cap"><b>위에서 아래로 리더의 질문 순서.</b> ① 괜찮은가 → ② 어디쯤인가 → ③ 이번 버전에서 뭐가 끝났나 → ④ 내가 개입할 것 → ⑤ 대화 요점. 정상인 사람은 안 나온다. 원문·지난 판정은 한 탭 아래.</div>
+    </div>
+
+    <!-- ③ PR 판정 -->
+    <div class="col">
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●● 􀛨</span></div>
+        <div class="content">
+          <div class="nav"><span class="back">‹ Unikey</span><span class="chip-hub">나만 봄</span></div>
+          <div class="large" style="font-size:28px;margin-bottom:4px">이번 주 PR</div>
+          <div class="seg"><div class="on">확인 필요 1</div><div>괜찮음 3</div></div>
+
+          <div class="gh"><span class="mono">web#12 · 찬웅</span><span class="badge sus">~딸깍 의심</span></div>
+          <div class="card">
+            <div class="cell" style="display:block">
+              <div class="ttl">feat(ia): IA 트리 화면과 생성 API</div>
+              <div class="sub">계획 대비 · <span class="mono">0.0.3</span> IA 슬라이스 — <b class="t2">일치</b></div>
+            </div>
+          </div>
+
+          <div class="gh"><span>신호</span></div>
+          <div class="card">
+            <div class="sig"><span class="m">✓</span><div>계획 일치<div class="d">이번 주 할 일, 이슈 #11과 연결됨</div></div></div>
+            <div class="sig"><span class="m warn">!</span><div>덩어리 투하<div class="d">1,840줄이 커밋 1개 · 금 23:41</div></div></div>
+            <div class="sig"><span class="m warn">!</span><div>이유 부재<div class="d">PR 본문이 템플릿 그대로 · 커밋 메시지 "update"</div></div></div>
+            <div class="sig"><span class="m warn">!</span><div>계약 이탈<div class="d"><span class="mono">contracts/ia.json</span>에 없는 필드 3개 (<span class="mono">meta</span>, <span class="mono">extra</span>, <span class="mono">tmp</span>)</div></div></div>
+            <div class="sig"><span class="m">·</span><div>코드 냄새<div class="d">한 번만 쓰는 래퍼 2개 · 코드를 읊는 주석 다수</div></div></div>
+            <div class="sig"><span class="m">·</span><div>테스트<div class="d">없음</div></div></div>
+          </div>
+
+          <div class="gh"><span>리뷰에서 물어볼 것</span></div>
+          <div class="card"><div class="ex">
+            <div class="b" style="color:#fff;font-size:15px">"IA를 재귀 트리 대신 평탄 배열로 저장한 이유가 뭐야?"</div>
+            <div class="b">답할 수 있으면 생각하고 짠 것. 못 하면 같이 다시 보자.</div>
+          </div></div>
+          <a class="more" style="border:0;text-align:center">GitHub에서 열기 ›</a>
+          <div class="cap" style="font-size:11px;text-align:center">LLM 추정이라 판정은 항상 <span class="est">~</span> 표시. AI 사용 여부가 아니라 <b>의도가 남아 있는지</b>를 본다.</div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><i></i>Today</div><div class="tab"><i></i>Market</div><div class="tab"><i></i>Timeline</div>
+          <div class="tab on"><i></i>Projects</div><div class="tab"><i></i>Machines</div><div class="tab"><i></i>Settings</div>
+        </div>
+      </div>
+      <div class="cap"><b>판정보다 질문.</b> 신호는 근거로만 깔고, 리더가 할 행동은 "이거 물어봐" 한 줄. 팀에는 공개하지 않는다 — 리더 전용.</div>
+    </div>
+
+    <!-- ④ 대화 -->
+    <div class="col">
+      <div class="phone">
+        <div class="status"><span>9:41</span><span>●●● 􀛨</span></div>
+        <div class="content">
+          <div class="nav"><span class="back">‹ Unikey</span><span class="chip-hub">요약 <span class="est">~40분 전</span></span></div>
+          <div class="large" style="font-size:28px;margin-bottom:4px">팀 대화</div>
+          <div class="seg"><div class="on">요약</div><div>원문</div></div>
+
+          <div class="gh"><span>오늘 · 10/9</span><span>47개 → 4줄</span></div>
+          <div class="card tldr">
+            <div class="ln"><span class="k">결정</span><span>API 계약은 <span class="mono">contracts/*.json</span>, 토요일 오전까지 PR</span></div>
+            <div class="ln"><span class="k">결정</span><span>월요일 목표는 "한 줄 관통" — 완성 아님</span></div>
+            <div class="ln"><span class="k">막힘</span><span>찬웅 — OpenAI 키를 아직 못 받음</span></div>
+            <div class="ln"><span class="k">질문</span><span>서윤 → 종현: 세션 쿠키 이름? <span class="t3">· 답 없음 3h</span></span></div>
+          </div>
+
+          <div class="gh"><span>어제 · 10/8 모임</span><span>112개 → 3줄</span></div>
+          <div class="card tldr">
+            <div class="ln"><span class="k">결정</span><span>저장소 Firestore → Neon 단일</span></div>
+            <div class="ln"><span class="k">결정</span><span>분담: 기능 풀스택 오너 (인증 종현 · PRD 서윤 · IA 찬웅)</span></div>
+            <div class="ln"><span class="k">공지</span><span>10/12(월) 인수인계, <span class="mono">HANDOFF.md</span></span></div>
+          </div>
+
+          <div class="gh"><span>채널</span></div>
+          <div class="card">
+            <div class="cell"><div class="grow"><span class="mono">#기획</span></div><span class="t3" style="font-size:13px">오늘 31</span><span class="chev">›</span></div>
+            <div class="cell"><div class="grow"><span class="mono">#개발</span></div><span class="t3" style="font-size:13px">오늘 16</span><span class="chev">›</span></div>
+            <div class="cell"><div class="grow"><span class="mono">#1_벌금bot</span></div><span class="t3" style="font-size:13px">조용함</span><span class="chev">›</span></div>
+          </div>
+        </div>
+        <div class="tabbar">
+          <div class="tab"><i></i>Today</div><div class="tab"><i></i>Market</div><div class="tab"><i></i>Timeline</div>
+          <div class="tab on"><i></i>Projects</div><div class="tab"><i></i>Machines</div><div class="tab"><i></i>Settings</div>
+        </div>
+      </div>
+      <div class="cap"><b>메시지가 아니라 요점.</b> 날마다 결정·막힘·질문·공지 네 종류만. "답 없음 3h"처럼 리더가 풀어줄 것을 드러낸다. 원문은 세그먼트 뒤로.</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div><h3>건강 판정 (자동)</h3>● On track · ◐ At risk · ○ Off track. 다음 버전의 남은 기능 수 ÷ 남은 일수, 그리고 "확인 필요" 개수로 정한다. 색이 아니라 모양으로 구분 — 크롬은 모노크롬 + Action Blue.</div>
+    <div><h3>데이터</h3>계획 = Unikey-outline <span class="mono">schedule.json</span>(v6). 실제 = GitHub 이슈·PR·커밋 + penalty-bot 장부 + Discord. LLM 요약·판정은 서버 배치(<span class="mono">claude -p</span>)가 1~3시간마다 <span class="mono">brief.json</span>으로.</div>
+    <div><h3>빠진 것 (의도적)</h3>사람별 전원 목록, 메시지 피드, 퍼센트 진행률, 차트. 정상인 것은 보여주지 않는다. 필요하면 한 탭 아래에 있다.</div>
+  </div>
+</div>
+</body>
+</html>
