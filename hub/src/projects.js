@@ -205,11 +205,18 @@ async function planSection(project, ctx, today) {
     ctx.onError('plan', e);
     return { state: 'error' };
   }
-  const repos = [...new Set(schedule.versions.flatMap((v) => v.features.flatMap((f) => f.issues.map((r) => r.split('#')[0]))))];
-  // ponytail: first 100 issues+PRs per repo; paginate when a repo outgrows it.
+  const refs = schedule.versions.flatMap((v) => v.features.flatMap((f) => f.issues));
+  const repos = [...new Set(refs.map((r) => r.split('#')[0]))];
+  // Fetch each referenced issue directly (an old issue must not fall off a newest-N page),
+  // plus open PRs for "Closes #n" mentions. Any failure → that repo is "can't tell" (null).
   const items = new Map(await Promise.all(repos.map(async (r) => {
     try {
-      return [r, await getJson(ctx.fetchFn, `https://api.github.com/repos/${r}/issues?state=all&per_page=100`, ghHeaders(token))];
+      const gh = ghHeaders(token);
+      const nums = [...new Set(refs.filter((x) => x.startsWith(`${r}#`)).map((x) => x.split('#')[1]))];
+      const issues = await Promise.all(nums.map((n) => getJson(ctx.fetchFn, `https://api.github.com/repos/${r}/issues/${n}`, gh)));
+      // ponytail: newest 100 open PRs; paginate if a repo ever has more open at once.
+      const pulls = await getJson(ctx.fetchFn, `https://api.github.com/repos/${r}/pulls?state=open&per_page=100`, gh);
+      return [r, [...issues, ...pulls.map((p) => ({ ...p, pull_request: {} }))]];
     } catch (e) {
       ctx.onError('issues', e);
       return [r, null];
@@ -245,6 +252,7 @@ async function briefSection(project, ctx, now) {
     state: 'ok', generatedAt,
     tldr: Array.isArray(b.tldr) ? b.tldr : [],
     reviews: Object.entries(b.reviews ?? {}).map(([key, r]) => ({ key, ...r })),
+    pending: Array.isArray(b.pending) ? b.pending : [],
   };
 }
 

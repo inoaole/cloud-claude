@@ -319,7 +319,7 @@ export interface ReviewSignal { kind: 'plan' | 'chunk' | 'reason' | 'contract' |
 export interface PrReview { key: string; label: string; author: string; title: string; url: string; verdict: Verdict; signals: ReviewSignal[]; question: string }
 export interface TldrDay { day: string; count: number; items: { kind: '결정' | '막힘' | '질문' | '공지'; text: string }[] }
 export type Brief =
-  | { state: 'ok'; generatedAt: string; tldr: TldrDay[]; reviews: PrReview[] }
+  | { state: 'ok'; generatedAt: string; tldr: TldrDay[]; reviews: PrReview[]; pending: { label: string; author: string; url: string }[] }
   | { state: 'error' | 'unconfigured'; generatedAt?: string | null };
 export type ProjectException =
   | { kind: 'stalled' | 'failed'; who: string; text: string }

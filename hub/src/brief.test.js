@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseClaudeJson, childEnv, validateReview, validateTldr, runBrief, MAX_REVIEWS } from './brief.js';
+import { EventEmitter } from 'node:events';
+import { parseClaudeJson, childEnv, validateReview, validateTldr, runBrief, runClaude, MAX_REVIEWS } from './brief.js';
 
 test('parseClaudeJson: 코드펜스·잡설 섞여도, 깨지면 null', () => {
   assert.deepEqual(parseClaudeJson('```json\n{"a":1}\n```'), { a: 1 });
@@ -74,7 +75,7 @@ test('새 PR 은 계획 맥락과 함께 판정하고 sha 로 저장', async () 
 });
 
 test('같은 sha 는 다시 판정하지 않는다 (호출 0)', async () => {
-  const prev = { reviews: { 'o/r_web#12@sha12': { label: 'web#12', verdict: 'ok', signals: [], question: '' } }, tldrKey: '30', tldr: [{ day: '2026-10-09', count: 2, items: [] }] };
+  const prev = { reviews: { 'o/r_web#12@sha12': { label: 'web#12', verdict: 'ok', signals: [], question: '' } }, tldrKey: '2026-10-09:30', tldr: [{ day: '2026-10-09', count: 2, items: [] }] };
   const c = claude(both);
   const out = await runBrief(detail(), deps({ claudeFn: c.fn, prev }));
   assert.equal(c.calls.length, 0);
@@ -93,7 +94,8 @@ test('판정이 깨지면 같은 PR 의 이전 판정 유지, 전부 실패면 g
 
 test('PR 판정은 실행당 MAX_REVIEWS 개까지', async () => {
   const c = claude(both);
-  await runBrief(detail(Array.from({ length: MAX_REVIEWS + 5 }, (_, i) => pr(i + 1))), deps({ claudeFn: c.fn }));
+  const out = await runBrief(detail(Array.from({ length: MAX_REVIEWS + 5 }, (_, i) => pr(i + 1))), deps({ claudeFn: c.fn }));
+  assert.equal(out.pending.length, 5); // 판정 못 한 PR 은 사라지지 않고 대기로 남는다
   assert.equal(c.calls.filter((x) => x.prompt.includes('코드 리뷰어')).length, MAX_REVIEWS);
 });
 
@@ -103,8 +105,60 @@ test('대화 요약: 오늘·어제 메시지만, 날짜별 count, 메시지 없
   const input = JSON.parse(c.calls[0].input);
   assert.deepEqual(input.map((m) => m.day), ['2026-10-08', '2026-10-09']); // 그저께 제외, 오래된 순
   assert.deepEqual(out.tldr.map((d) => [d.day, d.count]), [['2026-10-09', 1], ['2026-10-08', 1]]);
-  assert.equal(out.tldrKey, '30');
+  assert.equal(out.tldrKey, '2026-10-09:30');
   const none = claude(both);
   const empty = await runBrief(detail([]), deps({ claudeFn: none.fn, channels: [] }));
   assert.deepEqual([none.calls.length, empty.tldr], [0, []]);
+});
+
+test('GitHub·Discord 가 다 죽으면 이전 요약·판정·시각 유지 — 조용한 날로 위장하지 않는다', async () => {
+  const prev = { generatedAt: 'old', tldrKey: '2026-10-09:30', tldr: [{ day: '2026-10-09', count: 3, items: [] }],
+    reviews: { 'o/r_web#12@sha12': { label: 'web#12', author: '찬웅', verdict: 'suspect', signals: [], question: '' } } };
+  const down = (url) => (url.includes('discord.com') ? res({}, 503) : fetchFn(url));
+  const c = claude(both);
+  const out = await runBrief(detail(null), deps({ claudeFn: c.fn, prev, fetchFn: down }));
+  assert.equal(c.calls.length, 0);
+  assert.equal(out.generatedAt, 'old');
+  assert.deepEqual(out.tldr, prev.tldr);
+  assert.equal(out.tldrKey, prev.tldrKey);
+  assert.equal(out.reviews['o/r_web#12@sha12'].verdict, 'suspect');
+});
+
+test('대화 요약 캐시는 날짜가 바뀌면 다시 만든다', async () => {
+  const prev = { tldrKey: '2026-10-08:30', tldr: [{ day: '2026-10-07', count: 1, items: [] }] };
+  const c = claude(both);
+  const out = await runBrief(detail([]), deps({ claudeFn: c.fn, prev }));
+  assert.equal(c.calls.length, 1);
+  assert.equal(out.tldr[0].day, '2026-10-09');
+});
+
+function fakeChild({ code = 0, stdout = '', stdinError = false } = {}) {
+  const calls = [];
+  const spawnFn = (cmd, args) => {
+    calls.push(args);
+    const child = new EventEmitter();
+    child.stdout = new EventEmitter();
+    child.kill = () => {};
+    child.stdin = new EventEmitter();
+    child.stdin.end = () => setImmediate(() => {
+      if (stdinError) child.stdin.emit('error', Object.assign(new Error('EPIPE'), { code: 'EPIPE' }));
+      if (stdout) child.stdout.emit('data', stdout);
+      child.emit('close', code);
+    });
+    return child;
+  };
+  return { calls, spawnFn };
+}
+
+test('runClaude: 사용자 설정·MCP 를 불러오지 않는다', async () => {
+  const f = fakeChild({ stdout: '{"a":1}' });
+  assert.equal(await runClaude('p', 'i', f.spawnFn), '{"a":1}');
+  assert.ok(f.calls[0].includes('--strict-mcp-config'));
+  const i = f.calls[0].indexOf('--setting-sources');
+  assert.equal(f.calls[0][i + 1], '');
+});
+
+test('runClaude: stdin EPIPE 는 거부로 끝나고 프로세스를 죽이지 않는다', async () => {
+  const f = fakeChild({ code: 1, stdinError: true });
+  await assert.rejects(runClaude('p', 'i', f.spawnFn), /exit 1/);
 });

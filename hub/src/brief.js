@@ -92,6 +92,8 @@ async function getText(fetchFn, url, headers) {
   return res.text();
 }
 
+const wait = (pr) => ({ label: pr.label, author: pr.owner, url: pr.url });
+
 function planContext(plan, owner) {
   const cur = plan?.state === 'ok' ? plan.current : null;
   if (!cur) return null;
@@ -103,28 +105,38 @@ function planContext(plan, owner) {
 }
 
 export async function runBrief(detail, { fetchFn, claudeFn, prev = {}, env, now, log, channels = [] }) {
+  // A failed source or claude call is a try; only a produced answer is a win. Tries but no wins
+  // → keep the old timestamp so the hub shows the brief going stale — never a quiet day.
   let tries = 0;
   let wins = 0;
+  const tally = (ok) => { tries += 1; if (ok) wins += 1; return ok; };
   const ask = async (prompt, input) => {
-    tries += 1;
     const out = parseClaudeJson(await claudeFn(prompt, input).catch((e) => { log(`claude: ${e.message}`); return ''; }));
-    if (out) wins += 1;
+    tally(Boolean(out));
     return out;
   };
+  const prevReviews = Object.entries(prev.reviews ?? {});
 
   // ── PR reviews ──
   const reviews = {};
+  const pending = [];
+  for (const p of detail.team?.people ?? []) {
+    // PRs unknown (GitHub down): carry this person's old verdicts instead of dropping them.
+    if (p.prs !== null) continue;
+    tally(false);
+    for (const [k, r] of prevReviews) if (r.author === p.name) reviews[k] = r;
+  }
   const prs = (detail.team?.people ?? []).flatMap((p) => (p.prs ?? []).map((x) => ({ ...x, owner: p.name })));
   let budget = MAX_REVIEWS;
   for (const pr of prs) {
     const id = `${pr.repo}#${pr.number}@`;
-    const older = Object.entries(prev.reviews ?? {}).find(([k]) => k.startsWith(id));
+    const older = prevReviews.find(([k]) => k.startsWith(id));
     try {
       const gh = ghHeaders(env.GITHUB_TOKEN);
       const meta = await getJson(fetchFn, `https://api.github.com/repos/${pr.repo}/pulls/${pr.number}`, gh);
       const key = id + meta.head.sha;
       if (prev.reviews?.[key]) { reviews[key] = prev.reviews[key]; continue; }
-      if (budget <= 0) { if (older) reviews[older[0]] = older[1]; continue; } // next run picks it up
+      if (budget <= 0) { if (older) reviews[older[0]] = older[1]; else pending.push(wait(pr)); continue; } // next run picks it up
       budget -= 1;
       const diff = await getText(fetchFn, meta.url, { ...gh, Accept: 'application/vnd.github.diff' });
       const commits = await getJson(fetchFn, `${meta.url}/commits?per_page=100`, gh);
@@ -135,10 +147,12 @@ export async function runBrief(detail, { fetchFn, claudeFn, prev = {}, env, now,
       });
       const r = validateReview(await ask(REVIEW_PROMPT, input));
       if (r) reviews[key] = { label: pr.label, author: pr.owner, title: meta.title, url: pr.url, ...r };
-      else { log(`review failed: ${pr.label}`); if (older) reviews[older[0]] = older[1]; }
+      else { log(`review failed: ${pr.label}`); if (older) reviews[older[0]] = older[1]; else pending.push(wait(pr)); }
     } catch (e) {
       log(`review fetch failed: ${pr.label} ${e.status ?? e.message}`);
+      tally(false);
       if (older) reviews[older[0]] = older[1];
+      else pending.push(wait(pr));
     }
   }
 
@@ -146,6 +160,7 @@ export async function runBrief(detail, { fetchFn, claudeFn, prev = {}, env, now,
   const today = kstParts(now).date;
   const yesterday = kstParts(now - 864e5).date;
   const msgs = [];
+  let chatFailed = false;
   for (const ch of channels) {
     try {
       // ponytail: newest 100 per channel; page with `before` if two days outgrow it.
@@ -155,13 +170,17 @@ export async function runBrief(detail, { fetchFn, claudeFn, prev = {}, env, now,
         if (day === today || day === yesterday) msgs.push({ id: m.id, day, channel: ch.name, author: m.author, content: m.content });
       }
     } catch (e) {
+      tally(false);
+      chatFailed = true;
       log(`discord failed: ${ch.name} ${e.status ?? e.message}`);
     }
   }
   msgs.sort((a, b) => (BigInt(a.id) < BigInt(b.id) ? -1 : 1));
-  const tldrKey = msgs.at(-1)?.id ?? null;
+  // Keyed by day too: a quiet midnight must not carry yesterday's summary as today's.
+  let tldrKey = msgs.length ? `${today}:${msgs.at(-1).id}` : null;
   let tldr = [];
-  if (tldrKey && tldrKey === prev.tldrKey) tldr = prev.tldr ?? [];
+  if (chatFailed) { tldrKey = prev.tldrKey ?? null; tldr = prev.tldr ?? []; } // partial chat would mis-summarise
+  else if (tldrKey && tldrKey === prev.tldrKey) tldr = prev.tldr ?? [];
   else if (msgs.length) {
     const counts = new Map();
     for (const m of msgs) counts.set(m.day, (counts.get(m.day) ?? 0) + 1);
@@ -171,16 +190,20 @@ export async function runBrief(detail, { fetchFn, claudeFn, prev = {}, env, now,
 
   // Everything we asked for failed → keep the old timestamp so the hub shows it going stale.
   const generatedAt = tries > 0 && wins === 0 ? prev.generatedAt ?? null : new Date(now).toISOString();
-  return { generatedAt, tldrKey, tldr, reviews };
+  return { generatedAt, tldrKey, tldr, reviews, pending };
 }
 
-function runClaude(prompt, input) {
+// No tools, no MCP servers, no user/project settings or hooks: untrusted diff/chat text reaches
+// this process, so it must have nothing to call. (--bare would also drop OAuth, so not that.)
+export function runClaude(prompt, input, spawnFn = spawn) {
   return new Promise((resolve, reject) => {
-    const child = spawn('claude', ['-p', prompt, '--tools', ''], { env: childEnv(process.env), cwd: os.tmpdir() });
+    const args = ['-p', prompt, '--tools', '', '--strict-mcp-config', '--setting-sources', ''];
+    const child = spawnFn('claude', args, { env: childEnv(process.env), cwd: os.tmpdir() });
     let out = '';
     const timer = setTimeout(() => child.kill('SIGKILL'), 5 * 60_000);
     child.stdout.on('data', (d) => { out += d; });
     child.on('error', reject);
+    child.stdin.on('error', () => {}); // claude died early → EPIPE; 'close' reports the exit code
     child.on('close', (code) => { clearTimeout(timer); code === 0 ? resolve(out) : reject(new Error(`claude exit ${code}`)); });
     child.stdin.end(input);
   });

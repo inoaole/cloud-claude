@@ -48,7 +48,7 @@ const detail = (over: Partial<ProjectDetailData> = {}): ProjectDetailData => ({
       { key: 'k12', label: 'web#12', author: '찬웅', title: 'feat(ia): 트리', url: 'https://x/12', verdict: 'suspect', question: '왜 평탄 배열?',
         signals: [{ kind: 'plan', ok: true, detail: '0.0.3 IA 슬라이스와 일치' }, { kind: 'chunk', ok: false, detail: '1,840줄 한 커밋' }] },
       { key: 'k30', label: 'web#30', author: '종현', title: 'feat(auth)', url: 'https://x/30', verdict: 'ok', question: '', signals: [] },
-    ] },
+    ], pending: [] },
   ...over,
 });
 
@@ -115,7 +115,7 @@ describe('ProjectDetail', () => {
     mockDetail.mockResolvedValue(detail());
     renderAt('/projects/mabc', <ProjectDetail />);
     expect(await screen.findByText('계약은 contracts/*.json')).toBeInTheDocument();
-    expect(screen.getByText(/팀 대화 · ~40분 전/)).toBeInTheDocument();
+    expect(screen.getByText(/팀 대화 · 10\/09 · ~40분 전/)).toBeInTheDocument();
   });
 
   it('일정·요약이 없거나 깨지면 그렇게 말한다', async () => {
@@ -195,5 +195,15 @@ describe('ProjectChat', () => {
     expect(screen.queryByText('<b>x</b>')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: '원문' }));
     expect(screen.getByText('<b>x</b>')).toBeInTheDocument();
+  });
+});
+
+describe('ProjectPrs pending', () => {
+  it('판정 못 한 PR 은 대기로 보인다', async () => {
+    const d = detail();
+    if (d.brief.state === 'ok') d.brief.pending = [{ label: 'web#40', author: '찬웅', url: 'https://x/40' }];
+    mockDetail.mockResolvedValue(d);
+    renderAt('/projects/mabc/prs', <ProjectPrs />, '/projects/:id/prs');
+    expect(await screen.findByText(/판정 대기 · web#40/)).toBeInTheDocument();
   });
 });

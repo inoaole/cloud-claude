@@ -260,7 +260,9 @@ const pmProject = { ...project, schedule: { repo: 'o/Unikey-outline', path: '기
 function pmRouter(over = {}) {
   return router({
     'contents/': () => res(schedule),
-    'repos/o/r_api/issues': () => res([{ number: 4, state: 'open' }, { number: 9, state: 'open', body: 'Closes #4', pull_request: {} }]),
+    // Per-ref fetch: an old issue must not fall out of a newest-100 page.
+    'repos/o/r_api/issues/4': () => res({ number: 4, state: 'open' }),
+    'repos/o/r_api/pulls?state=open': () => res([{ number: 9, state: 'open', body: 'Closes #4' }]),
     ...over,
   });
 }
@@ -290,7 +292,7 @@ test('계획: schedule 없음 → unconfigured, 404·형식 오류 → error, �
   assert.equal((await pmRun({ project: project })).plan.state, 'unconfigured');
   assert.equal((await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({}, 404) }) })).plan.state, 'error');
   assert.equal((await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({ phases: 'x' }) }) })).plan.state, 'error');
-  const d = await pmRun({ fetchFn: pmRouter({ 'repos/o/r_api/issues': () => res({}, 500) }) });
+  const d = await pmRun({ fetchFn: pmRouter({ 'repos/o/r_api/issues/4': () => res({}, 500) }) });
   assert.equal(d.plan.current.features[0].status, null);
   assert.equal(d.health.level, 'unknown');
 });
@@ -327,4 +329,10 @@ test('loadProjects: schedule 형식 검증', async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('요약: 판정 대기 PR 은 그대로 전달, 예전 형식은 []', async () => {
+  const d = await pmRun({ readFn: pmFiles({ '/b/mabc.json': brief({ pending: [{ label: 'web#40', author: '찬웅', url: 'u40' }] }) }) });
+  assert.deepEqual(d.brief.pending, [{ label: 'web#40', author: '찬웅', url: 'u40' }]);
+  assert.deepEqual((await pmRun()).brief.pending, []);
 });

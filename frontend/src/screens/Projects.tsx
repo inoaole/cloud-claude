@@ -184,7 +184,8 @@ export function TldrLines({ day }: { day: TldrDay }) {
 
 function TalkCard({ brief, id, raw }: { brief: Brief; id: string; raw: number }) {
   const navigate = useNavigate();
-  const head = brief.state === 'ok' ? `팀 대화 · ${ago(brief.generatedAt)}` : '팀 대화';
+  const day = brief.state === 'ok' ? brief.tldr[0]?.day : undefined;
+  const head = brief.state === 'ok' ? `팀 대화 · ${day ? `${mmdd(day)} · ` : ''}${ago(brief.generatedAt)}` : '팀 대화';
   return (
     <Group header={head}>
       {brief.state !== 'ok' && <p className={`${styles.section} ${brief.state === 'error' ? styles.warn : ''}`}>{BRIEF_TEXT[brief.state]}</p>}
@@ -299,6 +300,7 @@ export function ProjectPrs() {
       <div className={styles.seg}>
         <Segmented options={[{ value: 'flag', label: `확인 필요 ${flagged.length}` }, { value: 'ok', label: `괜찮음 ${fine.length}` }]} value={tab} onChange={setTab} />
       </div>
+      {b.pending.length > 0 && <Group><p className={styles.section}>판정 대기 · {b.pending.map((x) => x.label).join(' · ')}</p></Group>}
       {shown.length === 0 && <Group><p className={styles.section}>{tab === 'flag' ? '확인할 PR 없음' : 'PR 없음'}</p></Group>}
       {shown.map((r) => (
         <Group key={r.key} header={`${r.label} · ${r.author} · ${ago(b.generatedAt)}`}>
