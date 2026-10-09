@@ -7,7 +7,7 @@ import { Stub } from '../components/Stub';
 import { IconProjects } from '../components/icons';
 import {
   getProject, getProjects,
-  type Brief, type FeatureStatus, type HealthLevel, type JudgeStatus, type Person, type PlanData,
+  type Brief, type FeatureStatus, type HealthLevel, type JudgeStatus, type Person, type PlanData, type PlanFeature,
   type ProjectDetailData, type ProjectException, type ProjectListItem, type SourceState, type TeamSummary, type TldrDay, type Verdict,
 } from '../lib/api';
 import { ProjectTimeline } from './ProjectTimeline';
@@ -27,7 +27,6 @@ export const BRIEF_TEXT: Record<Exclude<SourceState, 'ok'>, string> = {
 };
 const LEVEL: Record<HealthLevel, string> = { on: 'On track', risk: 'At risk', off: 'Off track', unknown: '판정 불가' };
 const FEATURE: Record<Exclude<FeatureStatus, null>, string> = { done: '머지', pr: 'PR 열림', todo: '시작 안 함', unlinked: '이슈 없음' };
-const FILLED: Record<Exclude<FeatureStatus, null>, number> = { unlinked: 0, todo: 0, pr: 2, done: 3 };
 const VERDICT: Record<Verdict, string> = { ok: '괜찮음', check: '확인 필요', suspect: '딸깍 의심' };
 
 const summaryText = (s: TeamSummary | null) => (s ? `${s.onTrack}/${s.judged} on track` : '판정 없음');
@@ -113,42 +112,52 @@ export function ProjectList() {
   );
 }
 
-function Steps({ status }: { status: FeatureStatus }) {
-  const filled = status === null ? 0 : FILLED[status];
-  return (
-    <span className={`${styles.steps} ${status === 'done' ? styles.stepsDone : ''}`} aria-hidden>
-      {[0, 1, 2].map((i) => <i key={i} className={i < filled ? styles.on : ''} />)}
-    </span>
-  );
-}
+// What a leader should see first in "남음": can't-tell, then not started, then waiting on review.
+const RANK: Record<string, number> = { null: 0, todo: 1, unlinked: 1, pr: 2 };
+const leftText = (f: PlanFeature) => (f.status === 'pr' && f.pr ? `${f.pr} PR` : `${f.name} ${f.status === null ? '확인 불가' : FEATURE[f.status]}`);
 
-function Plan({ plan }: { plan: PlanData }) {
+function Plan({ plan, people }: { plan: PlanData; people: string[] }) {
   if (plan.state !== 'ok') return <Group header="일정"><p className={styles.section}>{SECTION_TEXT[plan.state]}</p></Group>;
   const cur = plan.current;
-  const done = cur ? cur.features.filter((f) => f.status === 'done').length : 0;
+  const merged = cur ? cur.features.filter((f) => f.status === 'done') : [];
+  // Issues are commit-sized, so one row per issue is a todo list, not a PM view: one row per owner.
+  const owners = cur ? [...new Set(cur.features.map((f) => f.owner || '담당 없음'))] : [];
+  const idle = people.filter((p) => !owners.includes(p));
   return (
     <>
       <Group header="일정">
         <div className={styles.tl}><ProjectTimeline phases={plan.phases} milestones={plan.milestones} today={plan.today} /></div>
       </Group>
       {cur ? (
-        <Group header={`${cur.id} · ${mmdd(cur.due)} · ${cur.goal} · ${done}/${cur.features.length}`}>
-          {cur.features.map((f) => (
-            <Cell
-              key={f.name}
-              leading={<span className={styles.who}>{f.owner}</span>}
-              title={f.name}
-              value={
-                <span className={styles.fstate}>
-                  <Steps status={f.status} />
-                  <span className={f.status === 'todo' || f.status === 'unlinked' ? styles.strong : f.pr ? 'mono' : ''}>
-                    {f.status === null ? '확인 불가' : f.status === 'pr' && f.pr ? f.pr : FEATURE[f.status]}
-                  </span>
-                </span>
-              }
-            />
-          ))}
-        </Group>
+        <>
+          <Group header={`${cur.id} · ${mmdd(cur.due)} · ${cur.goal} · ${merged.length}/${cur.features.length}`}>
+            {owners.map((o) => {
+              const mine = cur.features.filter((f) => (f.owner || '담당 없음') === o);
+              const done = mine.filter((f) => f.status === 'done').length;
+              const left = mine.filter((f) => f.status !== 'done').sort((a, b) => RANK[String(a.status)] - RANK[String(b.status)]);
+              return (
+                <Cell
+                  key={o}
+                  leading={<span className={styles.who}>{o}</span>}
+                  title={<progress className={styles.bar} value={done} max={mine.length} aria-label={`${o} ${done}/${mine.length}`} />}
+                  subtitle={left.length
+                    ? `남음 ${left.slice(0, 3).map(leftText).join(' · ')}${left.length > 3 ? ` 외 ${left.length - 3}개` : ''}`
+                    : '모두 머지'}
+                  value={<span className="mono">{done}/{mine.length}</span>}
+                />
+              );
+            })}
+            {idle.map((p) => (
+              <Cell key={p} leading={<span className={styles.who}>{p}</span>} title={<span className={styles.quiet}>이 버전 담당 없음</span>} />
+            ))}
+          </Group>
+          {merged.length > 0 && (
+            <details className={styles.past}>
+              <summary>머지된 {merged.length}개</summary>
+              <Group>{merged.map((f, i) => <Cell key={i} leading={<span className={styles.who}>{f.owner}</span>} title={f.name} />)}</Group>
+            </details>
+          )}
+        </>
       ) : <Group header="이번 버전"><p className={styles.section}>모든 버전 완료</p></Group>}
     </>
   );
@@ -229,7 +238,7 @@ export function ProjectDetail() {
         <div><div className={styles.level}>{LEVEL[d.health.level]}</div><div className={styles.why}>{d.health.why}</div></div>
       </div>
 
-      <Plan plan={d.plan} />
+      <Plan plan={d.plan} people={d.team.people.map((p) => p.name)} />
 
       {d.exceptions.length > 0 && (
         <Group header={`확인 필요 · ${d.exceptions.length}`}>

@@ -86,14 +86,38 @@ describe('ProjectDetail', () => {
     expect(screen.getByText('0.0.3까지 3일, PRD 슬라이스 진행 안 보임')).toBeInTheDocument();
   });
 
-  it('체크리스트: 다섯 상태가 서로 다른 문구', async () => {
+  it('체크리스트: 사람별 한 줄 — 막대 · N/M · 남은 것(멈춘 것 먼저)', async () => {
     mockDetail.mockResolvedValue(detail());
     renderAt('/projects/mabc', <ProjectDetail />);
-    expect(await screen.findByText('머지')).toBeInTheDocument();
-    expect(screen.getByText('api#4')).toBeInTheDocument();
-    expect(screen.getByText('시작 안 함')).toBeInTheDocument();
-    expect(screen.getByText('이슈 없음')).toBeInTheDocument();
-    expect(screen.getByText('확인 불가')).toBeInTheDocument();
+    expect(await screen.findByRole('progressbar', { name: '종현 1/3' })).toBeInTheDocument();
+    expect(screen.getByText('남음 배포 확인 불가 · api#4 PR')).toBeInTheDocument();
+    expect(screen.getByText('남음 IA 슬라이스 시작 안 함')).toBeInTheDocument();
+    expect(screen.getByText('남음 PRD 슬라이스 이슈 없음')).toBeInTheDocument();
+    expect(screen.getAllByRole('progressbar')).toHaveLength(3);
+    expect(screen.getByText('머지된 1개')).toBeInTheDocument();
+    expect(screen.getByText('인증')).toBeInTheDocument(); // 접힌 칸 안에 있다
+  });
+
+  it('체크리스트: 남은 것은 3개까지 + 외 N개, 할 일 없는 팀원·담당 없는 이슈도 보인다', async () => {
+    const base = detail();
+    if (base.plan.state !== 'ok' || !base.plan.current) throw new Error('fixture');
+    const todo = (name: string, owner = '종현') => ({ name, owner, status: 'todo' as const, pr: null });
+    base.plan.current.features = [todo('a'), todo('b'), todo('c'), todo('d'), todo('e'), todo('f', '')];
+    mockDetail.mockResolvedValue(base);
+    renderAt('/projects/mabc', <ProjectDetail />);
+    expect(await screen.findByText('남음 a 시작 안 함 · b 시작 안 함 · c 시작 안 함 외 2개')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: '담당 없음 0/1' })).toBeInTheDocument();
+    expect(screen.getAllByText('이 버전 담당 없음')).toHaveLength(2); // 서윤 · 찬웅
+    expect(screen.queryByText(/머지된/)).not.toBeInTheDocument();
+  });
+
+  it('체크리스트: 모두 머지면 그렇게 말한다', async () => {
+    const base = detail();
+    if (base.plan.state !== 'ok' || !base.plan.current) throw new Error('fixture');
+    base.plan.current.features = [{ name: '인증', owner: '종현', status: 'done', pr: null }];
+    mockDetail.mockResolvedValue(base);
+    renderAt('/projects/mabc', <ProjectDetail />);
+    expect(await screen.findByText('모두 머지')).toBeInTheDocument();
   });
 
   it('확인 필요: 예외만, 의심 PR 에는 물어볼 것', async () => {
