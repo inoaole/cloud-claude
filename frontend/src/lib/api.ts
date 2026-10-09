@@ -304,6 +304,27 @@ export interface Person {
 }
 export interface DiscordMessage { id: string; author: string; content: string; ts: string; attachments: number }
 export interface DiscordChannel { id: string; name: string; state: SourceState; messages: DiscordMessage[] }
+export type HealthLevel = 'on' | 'risk' | 'off' | 'unknown';
+export type FeatureStatus = 'done' | 'pr' | 'todo' | 'unlinked' | null;
+export interface ProjectHealth { level: HealthLevel; why: string }
+export interface PlanFeature { name: string; owner: string; status: FeatureStatus; pr: string | null }
+export interface Phase { name: string; start: string; end: string; rest?: boolean }
+export interface Milestone { id: string; due: string; done: boolean }
+export type PlanData =
+  | { state: 'ok'; today: string; phases: Phase[]; milestones: Milestone[];
+      current: { id: string; due: string; goal: string; daysLeft: number; features: PlanFeature[] } | null }
+  | { state: 'error' | 'unconfigured' };
+export type Verdict = 'ok' | 'check' | 'suspect';
+export interface ReviewSignal { kind: 'plan' | 'chunk' | 'reason' | 'contract' | 'smell' | 'tests'; ok: boolean; detail: string }
+export interface PrReview { key: string; label: string; author: string; title: string; url: string; verdict: Verdict; signals: ReviewSignal[]; question: string }
+export interface TldrDay { day: string; count: number; items: { kind: '결정' | '막힘' | '질문' | '공지'; text: string }[] }
+export type Brief =
+  | { state: 'ok'; generatedAt: string; tldr: TldrDay[]; reviews: PrReview[]; pending: { label: string; author: string; url: string }[] }
+  | { state: 'error' | 'unconfigured'; generatedAt?: string | null };
+export type ProjectException =
+  | { kind: 'stalled' | 'failed'; who: string; text: string }
+  | { kind: 'review'; label: string; verdict: Verdict; url: string; question: string; text: string };
+
 export interface ProjectDetailData {
   id: string;
   name: string;
@@ -312,8 +333,15 @@ export interface ProjectDetailData {
   ledger: { state: SourceState };
   github: { state: SourceState };
   discord: { state: SourceState; channels: DiscordChannel[] };
+  plan: PlanData;
+  health: ProjectHealth;
+  exceptions: ProjectException[];
+  brief: Brief;
 }
-export interface ProjectListItem { id: string; name: string; state: SourceState; summary: TeamSummary | null; lastMessageAt: string | null }
+export interface ProjectListItem {
+  id: string; name: string; state: SourceState; summary: TeamSummary | null; lastMessageAt: string | null;
+  health: ProjectHealth; currentId: string | null; daysLeft: number | null; exceptionCount: number;
+}
 
 export async function getProjects(): Promise<ProjectListItem[]> {
   const res = await apiFetch('/api/projects');

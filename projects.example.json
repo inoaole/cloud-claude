@@ -3,6 +3,7 @@
     "id": "mabc",
     "name": "Unikey",
     "penaltyBotDir": "/home/ubuntu/penalty-bot",
+    "schedule": { "repo": "uni-keyyy/Unikey-outline", "path": "기획/schedule.json" },
     "discordChannels": [
       { "id": "1482547310591348769", "name": "벌금bot" }
     ]

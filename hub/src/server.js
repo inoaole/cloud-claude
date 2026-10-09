@@ -280,6 +280,7 @@ async function projectDetail(p) {
   const hit = projectCache.get(p.id);
   if (hit && Date.now() - hit.at < 60_000) return hit.body;
   const body = await getProject(p, {
+    briefsDir: config.briefsDir,
     // Status/code only — external error bodies can echo tokens or internal URLs.
     onError: (source, e) => audit('projects_source_error', { project: p.id, source, status: e?.status ?? e?.code ?? e?.name }),
   });

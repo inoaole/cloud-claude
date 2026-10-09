@@ -7,6 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { kstParts } from './market.js';
+import { parsePhases, versionsFromMilestones, daysBetween, featureStatus, currentVersion, exceptionsOf, healthOf } from './plan.js';
 
 const ID_RE = /^[a-z0-9-]{1,32}$/;
 const CHANNEL_RE = /^\d{1,20}$/;
@@ -32,6 +33,11 @@ export async function loadProjects(file) {
     // Channel ids are interpolated into a Discord URL — digits only.
     for (const ch of p.discordChannels ?? []) {
       if (!CHANNEL_RE.test(ch?.id ?? '')) throw new Error(`bad channel id: ${JSON.stringify(ch?.id)}`);
+    }
+    // schedule.repo/path are interpolated into a GitHub URL.
+    if (p.schedule && (!/^[\w.-]+\/[\w.-]+$/.test(p.schedule.repo ?? '') || !p.schedule.path
+      || `${p.schedule.repo}/${p.schedule.path}`.split('/').includes('..'))) {
+      throw new Error(`bad schedule: ${JSON.stringify(p.schedule)}`);
     }
   }
   return list;
@@ -79,6 +85,8 @@ export function filterPrs(pulls, login, startMs) {
       title: pr.title,
       url: pr.html_url,
       state: pr.merged_at ? 'merged' : pr.state,
+      repo,
+      number: pr.number,
     }));
 }
 
@@ -96,14 +104,16 @@ export function mapMessage(m) {
 const TIMEOUT_MS = 8000;
 const UA = 'cloud-claude-hub';
 
-async function getJson(fetchFn, url, headers) {
+export async function getJson(fetchFn, url, headers) {
   const res = await fetchFn(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (!res.ok) throw Object.assign(new Error(`http ${res.status}`), { status: res.status });
   return res.json();
 }
 
+export const ghHeaders = (token) => ({ Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': UA });
+
 async function fetchPulls(fetchFn, token, repos, startMs) {
-  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'User-Agent': UA };
+  const headers = ghHeaders(token);
   const out = [];
   for (const repo of repos) {
     for (let page = 1; ; page += 1) {
@@ -121,6 +131,7 @@ async function teamSections(project, ctx, monday, startMs) {
     team: { state: 'unconfigured', summary: null, people: [] },
     ledger: { state: 'unconfigured' },
     github: { state: 'unconfigured' },
+    repos: [], nameOf: {},
   };
   if (!project.penaltyBotDir) return unconfigured;
   const dir = project.penaltyBotDir;
@@ -131,7 +142,7 @@ async function teamSections(project, ctx, monday, startMs) {
     if (!Array.isArray(cfg?.people) || !Array.isArray(cfg.repos ?? [])) throw new Error('config.json: people/repos must be arrays');
   } catch (e) {
     ctx.onError('team', e);
-    return { ...unconfigured, team: { state: 'error', summary: null, people: [] } };
+    return { ...unconfigured, team: { state: 'error', summary: null, people: [] }, repos: null };
   }
 
   // No ledger yet = the judge has never run. That is normal, not an error.
@@ -163,7 +174,8 @@ async function teamSections(project, ctx, monday, startMs) {
     ...summarizePerson(weeks, p.name),
     prs: pulls && filterPrs(pulls, p.github, startMs),
   }));
-  return { team: { state: 'ok', summary: teamSummary(people), people }, ledger, github };
+  const nameOf = Object.fromEntries((cfg.people ?? []).filter((p) => p.github).map((p) => [p.github, p.name]));
+  return { team: { state: 'ok', summary: teamSummary(people), people }, ledger, github, repos: cfg.repos ?? [], nameOf };
 }
 
 async function discordSection(project, ctx) {
@@ -183,15 +195,94 @@ async function discordSection(project, ctx) {
   return { state: channels.some((c) => c.state === 'ok') ? 'ok' : 'error', channels };
 }
 
+/** Versions come from GitHub milestones on the team's repos; schedule.json only adds phase bands.
+    repos: null = penalty-bot config unreadable (can't tell), [] = not set up. */
+async function planSection(project, ctx, today, repos, nameOf) {
+  const token = ctx.env.GITHUB_TOKEN;
+  if (repos === null) return { state: 'error' };
+  if (!repos.length || !token) return { state: 'unconfigured' };
+  const gh = ghHeaders(token);
+  let phases = [];
+  if (project.schedule) {
+    const { repo, path: file } = project.schedule;
+    try {
+      const url = `https://api.github.com/repos/${repo}/contents/${file.split('/').map(encodeURIComponent).join('/')}`;
+      phases = parsePhases(await getJson(ctx.fetchFn, url, { ...gh, Accept: 'application/vnd.github.raw+json' }));
+    } catch (e) {
+      ctx.onError('schedule', e); // phase bands are decoration; versions still stand without them
+    }
+  }
+  let fetched;
+  try {
+    fetched = await Promise.all(repos.map(async (repo) => {
+      const milestones = await getJson(ctx.fetchFn, `https://api.github.com/repos/${repo}/milestones?state=all&per_page=100`, gh);
+      const issues = {};
+      // ponytail: 100 issues per milestone; paginate if a single version ever outgrows it.
+      await Promise.all(milestones.filter((m) => m.due_on).map(async (m) => {
+        const list = await getJson(ctx.fetchFn, `https://api.github.com/repos/${repo}/issues?milestone=${m.number}&state=all&per_page=100`, gh);
+        issues[m.number] = list.filter((i) => !i.pull_request);
+      }));
+      // ponytail: newest 100 open PRs for "Closes #n"; paginate if a repo ever has more open at once.
+      const pulls = await getJson(ctx.fetchFn, `https://api.github.com/repos/${repo}/pulls?state=open&per_page=100`, gh);
+      return { repo, milestones, issues, pulls };
+    }));
+  } catch (e) {
+    // A missing repo means missing versions — a partial plan would lie about what is left.
+    ctx.onError('milestones', e);
+    return { state: 'error' };
+  }
+  const items = new Map(fetched.map((r) => [r.repo, [...Object.values(r.issues).flat(), ...r.pulls.map((p) => ({ ...p, pull_request: {} }))]]));
+  const versions = versionsFromMilestones(fetched, nameOf).map((v) => ({
+    ...v, features: v.features.map((f) => ({ name: f.name, owner: f.owner, ...featureStatus(f, items) })),
+  }));
+  if (!versions.length) return { state: 'unconfigured' };
+  const cur = currentVersion(versions, today);
+  return {
+    state: 'ok', today, phases,
+    milestones: versions.map((v) => ({ id: v.id, due: v.due, done: v.features.length > 0 && v.features.every((f) => f.status === 'done') })),
+    current: cur && { id: cur.id, due: cur.due, goal: cur.goal, daysLeft: daysBetween(today, cur.due), features: cur.features },
+  };
+}
+
+const STALE_MS = 6 * 3600e3;
+
+/** The batch runner's output. A runner that stopped must read as broken, never as a quiet day. */
+async function briefSection(project, ctx, now) {
+  if (!ctx.briefsDir) return { state: 'unconfigured' };
+  let b;
+  try {
+    b = JSON.parse(await ctx.readFn(path.join(ctx.briefsDir, `${project.id}.json`)));
+  } catch (e) {
+    if (e.code === 'ENOENT') return { state: 'unconfigured' };
+    ctx.onError('brief', e);
+    return { state: 'error' };
+  }
+  const generatedAt = b?.generatedAt ?? null;
+  if (!(now - Date.parse(generatedAt ?? '') < STALE_MS)) return { state: 'error', generatedAt };
+  return {
+    state: 'ok', generatedAt,
+    tldr: Array.isArray(b.tldr) ? b.tldr : [],
+    reviews: Object.entries(b.reviews ?? {}).map(([key, r]) => ({ key, ...r })),
+    pending: Array.isArray(b.pending) ? b.pending : [],
+  };
+}
+
 /** Assemble one project. Never throws — every failure is a section state. */
 export async function getProject(project, {
-  fetchFn = fetch, readFn = (f) => readFile(f, 'utf8'), env = process.env, now = Date.now(), onError = () => {},
+  fetchFn = fetch, readFn = (f) => readFile(f, 'utf8'), env = process.env, now = Date.now(), onError = () => {}, briefsDir = null,
 } = {}) {
-  const ctx = { fetchFn, readFn, env, onError };
+  const ctx = { fetchFn, readFn, env, onError, briefsDir };
   const monday = weekStart(now);
   const startMs = Date.parse(`${monday}T00:00:00+09:00`);
-  const [teamPart, discord] = await Promise.all([teamSections(project, ctx, monday, startMs), discordSection(project, ctx)]);
-  return { id: project.id, name: project.name, weekStart: monday, ...teamPart, discord };
+  const today = kstParts(now).date;
+  const [{ repos, nameOf, ...teamPart }, discord, brief] = await Promise.all([
+    teamSections(project, ctx, monday, startMs), discordSection(project, ctx), briefSection(project, ctx, now),
+  ]);
+  const plan = await planSection(project, ctx, today, repos, nameOf);
+  const current = plan.current ?? null;
+  const exceptions = exceptionsOf({ current, people: teamPart.team.people, reviews: brief.reviews ?? [] });
+  const health = healthOf({ planState: plan.state, current, exceptions });
+  return { id: project.id, name: project.name, weekStart: monday, ...teamPart, discord, plan, health, exceptions, brief };
 }
 
 /** Row for the Projects list. Discord timestamps share one ISO format, so string max works. */
@@ -199,5 +290,8 @@ export function listItem(d) {
   const ts = d.discord.channels.flatMap((c) => c.messages.map((m) => m.ts)).sort().at(-1) ?? null;
   // Carry the state so a broken source never reads as "not judged yet" on the list.
   const state = d.team.state !== 'ok' ? d.team.state : d.ledger.state === 'error' ? 'error' : 'ok';
-  return { id: d.id, name: d.name, state, summary: d.team.summary, lastMessageAt: ts };
+  return {
+    id: d.id, name: d.name, state, summary: d.team.summary, lastMessageAt: ts,
+    health: d.health, currentId: d.plan.current?.id ?? null, daysLeft: d.plan.current?.daysLeft ?? null, exceptionCount: d.exceptions.length,
+  };
 }
