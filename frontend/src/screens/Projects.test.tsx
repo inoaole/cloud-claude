@@ -120,6 +120,16 @@ describe('ProjectDetail', () => {
     expect(await screen.findByText('모두 머지')).toBeInTheDocument();
   });
 
+  it('체크리스트: 담당 없는 이슈는 접힌 칸에서도 빈칸이 아니다', async () => {
+    const base = detail();
+    if (base.plan.state !== 'ok' || !base.plan.current) throw new Error('fixture');
+    base.plan.current.features = [{ name: '정리', owner: '', status: 'done', pr: null }];
+    mockDetail.mockResolvedValue(base);
+    renderAt('/projects/mabc', <ProjectDetail />);
+    await screen.findByText('머지된 1개');
+    expect(screen.getAllByText('담당 없음')).toHaveLength(2); // 사람 줄 + 접힌 칸
+  });
+
   it('확인 필요: 예외만, 의심 PR 에는 물어볼 것', async () => {
     mockDetail.mockResolvedValue(detail());
     renderAt('/projects/mabc', <ProjectDetail />);

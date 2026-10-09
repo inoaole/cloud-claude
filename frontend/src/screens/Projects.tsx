@@ -114,6 +114,7 @@ export function ProjectList() {
 
 // What a leader should see first in "남음": can't-tell, then not started, then waiting on review.
 const RANK: Record<string, number> = { null: 0, todo: 1, unlinked: 1, pr: 2 };
+const ownerOf = (f: PlanFeature) => f.owner || '담당 없음';
 const leftText = (f: PlanFeature) => (f.status === 'pr' && f.pr ? `${f.pr} PR` : `${f.name} ${f.status === null ? '확인 불가' : FEATURE[f.status]}`);
 
 function Plan({ plan, people }: { plan: PlanData; people: string[] }) {
@@ -121,7 +122,7 @@ function Plan({ plan, people }: { plan: PlanData; people: string[] }) {
   const cur = plan.current;
   const merged = cur ? cur.features.filter((f) => f.status === 'done') : [];
   // Issues are commit-sized, so one row per issue is a todo list, not a PM view: one row per owner.
-  const owners = cur ? [...new Set(cur.features.map((f) => f.owner || '담당 없음'))] : [];
+  const owners = cur ? [...new Set(cur.features.map(ownerOf))] : [];
   const idle = people.filter((p) => !owners.includes(p));
   return (
     <>
@@ -132,7 +133,7 @@ function Plan({ plan, people }: { plan: PlanData; people: string[] }) {
         <>
           <Group header={`${cur.id} · ${mmdd(cur.due)} · ${cur.goal} · ${merged.length}/${cur.features.length}`}>
             {owners.map((o) => {
-              const mine = cur.features.filter((f) => (f.owner || '담당 없음') === o);
+              const mine = cur.features.filter((f) => ownerOf(f) === o);
               const done = mine.filter((f) => f.status === 'done').length;
               const left = mine.filter((f) => f.status !== 'done').sort((a, b) => RANK[String(a.status)] - RANK[String(b.status)]);
               return (
@@ -154,7 +155,7 @@ function Plan({ plan, people }: { plan: PlanData; people: string[] }) {
           {merged.length > 0 && (
             <details className={styles.past}>
               <summary>머지된 {merged.length}개</summary>
-              <Group>{merged.map((f, i) => <Cell key={i} leading={<span className={styles.who}>{f.owner}</span>} title={f.name} />)}</Group>
+              <Group>{merged.map((f, i) => <Cell key={i} leading={<span className={styles.who}>{ownerOf(f)}</span>} title={f.name} />)}</Group>
             </details>
           )}
         </>
