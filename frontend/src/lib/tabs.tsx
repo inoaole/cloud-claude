@@ -1,5 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
-import { IconGrowth, IconMachines, IconMarket, IconSettings, IconTimeline, IconToday } from '../components/icons';
+import { IconMachines, IconMarket, IconProjects, IconSettings, IconTimeline, IconToday } from '../components/icons';
 
 export interface TabDef {
   path: string;
@@ -14,7 +14,7 @@ export const TABS: TabDef[] = [
   { path: '/today', label: 'Today', Icon: IconToday },
   { path: '/market', label: 'Market', Icon: IconMarket },
   { path: '/timeline', label: 'Timeline', Icon: IconTimeline },
-  { path: '/growth', label: 'Growth', Icon: IconGrowth },
+  { path: '/projects', label: 'Projects', Icon: IconProjects },
   { path: '/machines', label: 'Machines', Icon: IconMachines },
   { path: '/settings', label: 'Settings', Icon: IconSettings },
 ];

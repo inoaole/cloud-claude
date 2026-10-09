@@ -593,10 +593,10 @@ journal over a data spine**, never a wall of TUI text.
 - **Accent:** Action Blue `#0066cc`; on-dark link/inline `#2997ff`.
 - **[RISK 1] Project palette** — a muted, dark-mode-safe categorical set (5–6 hues,
   ~55% sat) used **only** in Growth aggregates (time-by-project). Chrome stays
-  monochrome + Action Blue; color never leaks into nav, buttons, or cards.
+  monochrome + Action Blue; color never leaks into nav, buttons, or cards. *(보류 — Growth 탭 제거 2026-10-07, 토큰도 삭제. 주간 집계 화면을 다시 만들 때 복원)*
 - **[RISK 2] Contribution heat scale** — a dark, Action-Blue-tinted step ramp (NOT
   GitHub green): `#1c1c1e → #14344f → #17527e → #1e6fb0 → #2997ff`. Weekly view reads
-  at a glance.
+  at a glance. *(보류 — Growth 탭 제거 2026-10-07, 토큰도 삭제. 주간 집계 화면을 다시 만들 때 복원)*
 
 ### Typography
 - Ladder unchanged: large-title 34px (collapses to 17px inline on scroll), body 17px,
@@ -610,7 +610,7 @@ journal over a data spine**, never a wall of TUI text.
   signature detail. `cwd=null` / low-confidence sessions show a muted "unknown project".
 
 ### Layout (iOS HIG)
-- **Tab bar (root):** `Today` · `Timeline` · `Growth` · `Machines` · `Settings`.
+- **Tab bar (root):** `Today` · `Market` · `Timeline` · `Projects` · `Machines` · `Settings`. (Growth → Projects, 2026-10-07)
   `Machines` (the old console) ships later; keep the slot. `Today` is the hero.
 - **Grouped-list cells** (iOS Settings style) for lists; **card stacks** for activity.
 - Top nav bar + drill-down; large-title → inline on scroll. Min **44px** touch targets.
@@ -623,7 +623,7 @@ journal over a data spine**, never a wall of TUI text.
 - **Today (day view):** grouped sections — Sessions, Commits, and the Note composer.
 - **Reflection composer:** single line, fast (<15s), quick-key bar; on save, one quiet
   micro-confirmation (a check, never confetti).
-- **Weekly aggregate:** time-by-project bars (project palette) + the heat scale.
+- **Weekly aggregate:** time-by-project bars (project palette) + the heat scale. *(보류 — Growth 탭 제거 2026-10-07, 토큰도 삭제. 주간 집계 화면을 다시 만들 때 복원)*
 - **State language (never conflate):** *quiet day* = calm empty state ("nothing logged
   today") vs *no data — device offline* = muted, visibly different (a dead collector must
   never read as "you did nothing"). Durations always shown as estimates.

@@ -283,3 +283,46 @@ export async function getMarketLatest(): Promise<MarketLatest> {
   if (!res.ok) throw new ApiError(res.status, await readJson(res));
   return (await res.json()) as MarketLatest;
 }
+
+// ── Projects (2026-10-07) ───────────────────────────────────────────────────
+
+/** Every source says which of the three it is. `error` and `unconfigured` must never
+    render alike, and neither may look like "nothing happened". */
+export type SourceState = 'ok' | 'error' | 'unconfigured';
+export type JudgeStatus = 'pass' | 'fail' | 'hold' | 'exempt';
+export interface TeamSummary { onTrack: number; judged: number }
+export interface ProjectPr { label: string; title: string; url: string; state: 'open' | 'closed' | 'merged' }
+export interface Person {
+  name: string;
+  github: string | null;
+  mode: 'plan' | 'dev' | 'exempt';
+  /** null = never judged. Not the same as false. */
+  onTrack: boolean | null;
+  history: { week: string; status: JudgeStatus; reason: string }[];
+  /** null = could not check (GitHub error/unconfigured). [] = genuinely no PRs. */
+  prs: ProjectPr[] | null;
+}
+export interface DiscordMessage { id: string; author: string; content: string; ts: string; attachments: number }
+export interface DiscordChannel { id: string; name: string; state: SourceState; messages: DiscordMessage[] }
+export interface ProjectDetailData {
+  id: string;
+  name: string;
+  weekStart: string;
+  team: { state: SourceState; summary: TeamSummary | null; people: Person[] };
+  ledger: { state: SourceState };
+  github: { state: SourceState };
+  discord: { state: SourceState; channels: DiscordChannel[] };
+}
+export interface ProjectListItem { id: string; name: string; state: SourceState; summary: TeamSummary | null; lastMessageAt: string | null }
+
+export async function getProjects(): Promise<ProjectListItem[]> {
+  const res = await apiFetch('/api/projects');
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  return (await res.json()) as ProjectListItem[];
+}
+
+export async function getProject(id: string): Promise<ProjectDetailData> {
+  const res = await apiFetch(`/api/projects/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new ApiError(res.status, await readJson(res));
+  return (await res.json()) as ProjectDetailData;
+}

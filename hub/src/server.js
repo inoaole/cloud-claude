@@ -28,6 +28,7 @@ import { handleIngest } from './ingest.js';
 import { handleBriefing, latestFor } from './market.js';
 import { buildRollup } from './rollup.js';
 import { handleSaveNote, getNote } from './notes.js';
+import { loadProjects, getProject, listItem } from './projects.js';
 
 // Live agent bridges keyed by session id: { child, ws, sessionId, lineBuf, graceTimer }.
 // The transcript is NOT here — it lives on the session, so it survives the child.
@@ -257,6 +258,52 @@ app.get('/api/market/latest', requireAuth, (_req, res) => {
     res.json(latestFor((date) => latestBriefing(db, date)));
   } catch (err) {
     audit('briefing_read_error', { msg: String(err?.message || err) });
+    res.status(500).json({ error: 'read_failed' });
+  }
+});
+
+// ── Projects ─────────────────────────────────────────────────────────────────
+// Read per request so editing projects.json needs no restart. A malformed file empties
+// only this tab; it must not take the hub down.
+async function readProjects() {
+  try {
+    return await loadProjects(config.projectsFile);
+  } catch (err) {
+    audit('projects_config_error', { msg: String(err?.message || err) });
+    return [];
+  }
+}
+
+// ponytail: per-process 60s cache, errors included so an outage isn't hammered on every tap.
+const projectCache = new Map(); // id -> { at, body }
+async function projectDetail(p) {
+  const hit = projectCache.get(p.id);
+  if (hit && Date.now() - hit.at < 60_000) return hit.body;
+  const body = await getProject(p, {
+    // Status/code only — external error bodies can echo tokens or internal URLs.
+    onError: (source, e) => audit('projects_source_error', { project: p.id, source, status: e?.status ?? e?.code ?? e?.name }),
+  });
+  projectCache.set(p.id, { at: Date.now(), body });
+  return body;
+}
+
+app.get('/api/projects', requireAuth, async (_req, res) => {
+  try {
+    const list = await readProjects();
+    res.json((await Promise.all(list.map(projectDetail))).map(listItem));
+  } catch (err) {
+    audit('projects_read_error', { msg: String(err?.message || err) });
+    res.status(500).json({ error: 'read_failed' });
+  }
+});
+
+app.get('/api/projects/:id', requireAuth, async (req, res) => {
+  try {
+    const p = (await readProjects()).find((x) => x.id === req.params.id);
+    if (!p) return res.status(404).json({ error: 'not_found' });
+    res.json(await projectDetail(p));
+  } catch (err) {
+    audit('projects_read_error', { msg: String(err?.message || err) });
     res.status(500).json({ error: 'read_failed' });
   }
 });

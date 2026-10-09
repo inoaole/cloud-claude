@@ -38,11 +38,11 @@ export function IconTimeline(props: IconProps) {
   );
 }
 
-/** Growth — rising bars. */
-export function IconGrowth(props: IconProps) {
+/** Projects — a folder. */
+export function IconProjects(props: IconProps) {
   return (
     <svg {...base} {...props}>
-      <path d="M4 20V13M10 20V9M16 20v-6M22 20V5" />
+      <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 8.7v9.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z" />
     </svg>
   );
 }
