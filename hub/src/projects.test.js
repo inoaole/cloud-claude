@@ -249,20 +249,18 @@ test('github 가 빈 문자열인 팀원은 github null, prs null', async () => 
 
 // ── PM 뷰: 계획 · 요약 ─────────────────────────────────────────────────────────
 
-const schedule = {
-  phases: [{ name: 'W1', start: '2026-10-05', end: '2026-10-12' }],
-  versions: [{ id: '0.0.3', due: '2026-10-09', goal: '한 줄 관통', features: [
-    { name: 'CRUD', owner: '종현', issues: ['o/r_api#4'] },
-    { name: 'PRD', owner: '서윤', issues: [] },
-  ] }],
-};
+const schedule = { phases: [{ name: 'W1', start: '2026-10-05', end: '2026-10-12' }] };
 const pmProject = { ...project, schedule: { repo: 'o/Unikey-outline', path: '기획/schedule.json' } };
+const ghIssue = (number, title, login, over = {}) => ({ number, title, state: 'open', user: { login }, assignees: [], ...over });
 function pmRouter(over = {}) {
   return router({
     'contents/': () => res(schedule),
-    // Per-ref fetch: an old issue must not fall out of a newest-100 page.
-    'repos/o/r_api/issues/4': () => res({ number: 4, state: 'open' }),
-    'repos/o/r_api/pulls?state=open': () => res([{ number: 9, state: 'open', body: 'Closes #4' }]),
+    'repos/o/r_web/milestones': () => res([
+      { number: 1, title: '0.0.3 — 한 줄 관통', due_on: '2026-10-09T12:00:00Z' },
+      { number: 2, title: '1.0.0', due_on: null },
+    ]),
+    'repos/o/r_web/issues?milestone=1': () => res([ghIssue(4, 'CRUD', 'inoaole'), ghIssue(5, 'PRD', 'banunas'), { ...ghIssue(9, 'pr', 'inoaole'), pull_request: {} }]),
+    'repos/o/r_web/pulls?state=open': () => res([{ number: 9, state: 'open', body: 'Closes #4' }]),
     ...over,
   });
 }
@@ -274,27 +272,30 @@ const pmRun = (over = {}) => getProject(over.project ?? pmProject, {
   env, now: over.now ?? NOW, onError: () => {}, briefsDir: '/b',
 });
 
-test('계획: 현재 버전·기능 상태·마일스톤, 한글 경로는 인코딩', async () => {
+test('계획: 마일스톤 = 버전, 이슈 = 기능, 담당 = 팀원 이름, 기간은 schedule.json', async () => {
   const urls = [];
   const d = await pmRun({ fetchFn: (u, o) => { urls.push(u); return pmRouter()(u, o); } });
   assert.ok(urls.some((u) => u.endsWith('/repos/o/Unikey-outline/contents/%EA%B8%B0%ED%9A%8D/schedule.json')));
   assert.equal(d.plan.state, 'ok');
   assert.equal(d.plan.today, '2026-10-07');
+  assert.deepEqual(d.plan.phases, schedule.phases);
   assert.deepEqual(d.plan.current, { id: '0.0.3', due: '2026-10-09', goal: '한 줄 관통', daysLeft: 2, features: [
-    { name: 'CRUD', owner: '종현', status: 'pr', pr: 'api#9' },
-    { name: 'PRD', owner: '서윤', status: 'unlinked', pr: null },
+    { name: 'CRUD', owner: '종현', status: 'pr', pr: 'web#9' },
+    { name: 'PRD', owner: '서윤', status: 'todo', pr: null },
   ] });
   assert.deepEqual(d.plan.milestones, [{ id: '0.0.3', due: '2026-10-09', done: false }]);
   assert.deepEqual(d.health, { level: 'risk', why: '0.0.3까지 2일, PRD 진행 안 보임' });
 });
 
-test('계획: schedule 없음 → unconfigured, 404·형식 오류 → error, 이슈 실패 → status null', async () => {
-  assert.equal((await pmRun({ project: project })).plan.state, 'unconfigured');
-  assert.equal((await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({}, 404) }) })).plan.state, 'error');
-  assert.equal((await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({ phases: 'x' }) }) })).plan.state, 'error');
-  const d = await pmRun({ fetchFn: pmRouter({ 'repos/o/r_api/issues/4': () => res({}, 500) }) });
-  assert.equal(d.plan.current.features[0].status, null);
-  assert.equal(d.health.level, 'unknown');
+test('계획: 팀 소스 없음·마일스톤 없음 → unconfigured, GitHub 실패·config 깨짐 → error, schedule 실패는 기간만 빈다', async () => {
+  assert.equal((await pmRun({ project: { id: 'swyp', name: 'S' } })).plan.state, 'unconfigured');
+  assert.equal((await pmRun({ fetchFn: pmRouter({ 'repos/o/r_web/milestones': () => res([]) }) })).plan.state, 'unconfigured');
+  const down = await pmRun({ fetchFn: pmRouter({ 'repos/o/r_web/issues?milestone=1': () => res({}, 500) }) });
+  assert.deepEqual([down.plan.state, down.health.level], ['error', 'unknown']);
+  assert.equal((await pmRun({ readFn: files({ '/pb/config.json': '{nope', '/b/mabc.json': brief() }) })).plan.state, 'error');
+  const noSched = await pmRun({ fetchFn: pmRouter({ 'contents/': () => res({}, 404) }) });
+  assert.deepEqual([noSched.plan.state, noSched.plan.phases], ['ok', []]);
+  assert.deepEqual((await pmRun({ project })).plan.phases, []);
 });
 
 test('요약: 정상 / 없음 / 6시간 경과 / 깨짐 / 예전 형식', async () => {

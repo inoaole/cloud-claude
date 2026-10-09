@@ -1,34 +1,47 @@
 // Plan vs reality for the Projects PM view. Pure: no I/O, no LLM.
 //
-// The plan is schedule.json (versions → features → owner + GitHub issue refs). Reality is the
-// issue/PR state those refs point at. Everything a phone needs to answer "are we OK?" is derived
+// The plan is GitHub milestones (version → due date → attached issues). Reality is the
+// issue/PR state. Everything a phone needs to answer "are we OK?" is derived
 // here deterministically, so every verdict has a one-line reason and a test.
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const REF_RE = /^[\w.-]+\/[\w.-]+#\d+$/;
 const OPEN = new Set(['todo', 'unlinked']);
 const DAY = 864e5;
 
-export function parseSchedule(raw) {
-  if (!Array.isArray(raw?.phases) || !Array.isArray(raw?.versions)) throw new Error('schedule: phases/versions must be arrays');
+/** schedule.json now only carries the timeline's phase bands; versions live in GitHub milestones. */
+export function parsePhases(raw) {
+  if (!Array.isArray(raw?.phases)) throw new Error('schedule: phases must be an array');
   for (const p of raw.phases) {
     if (!p?.name || !DATE_RE.test(p.start ?? '') || !DATE_RE.test(p.end ?? '')) throw new Error(`bad phase: ${JSON.stringify(p)}`);
   }
-  const versions = raw.versions.map((v) => {
-    if (!v?.id || !DATE_RE.test(v.due ?? '') || !Array.isArray(v.features)) throw new Error(`bad version due/features: ${JSON.stringify(v?.id)}`);
-    return {
-      id: v.id, due: v.due, goal: v.goal ?? '',
-      features: v.features.map((f) => {
-        const issues = f?.issues ?? [];
-        if (!f?.name || !f.owner || !Array.isArray(issues) || !issues.every((r) => REF_RE.test(r))) {
-          throw new Error(`bad feature/issue ref: ${JSON.stringify(f)}`);
-        }
-        return { name: f.name, owner: f.owner, issues };
-      }),
-    };
-  });
-  versions.sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
-  return { phases: raw.phases, versions };
+  return raw.phases;
 }
+
+/**
+ * GitHub milestones → versions. A version is every milestone sharing an id ("0.1.0 — MVP" → "0.1.0")
+ * across repos; its features are the issues attached to it. Owner = assignee, else the author.
+ * repos: [{ repo, milestones, issues: { [milestoneNumber]: issue[] } }]
+ */
+export function versionsFromMilestones(repos, nameOf) {
+  const byId = new Map();
+  for (const { repo, milestones, issues } of repos) {
+    // ponytail: a milestone without a due date has no place on a timeline; it is left out.
+    for (const m of milestones.filter((x) => x.due_on)) {
+      const [id, ...rest] = m.title.split(' — ');
+      const due = kstDate(m.due_on);
+      const v = byId.get(id.trim()) ?? { id: id.trim(), due, goal: '', features: [] };
+      if (due < v.due) v.due = due;
+      v.goal ||= rest.join(' — ').trim() || (m.description ?? '').split(/[.\n]/)[0].trim();
+      for (const i of issues[m.number] ?? []) {
+        const login = i.assignees?.[0]?.login ?? i.user?.login ?? '';
+        v.features.push({ name: i.title, owner: nameOf[login] ?? login, issues: [`${repo}#${i.number}`] });
+      }
+      byId.set(v.id, v);
+    }
+  }
+  return [...byId.values()].sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+}
+
+const kstDate = (iso) => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10);
 
 export function daysBetween(from, to) {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY);
@@ -59,7 +72,8 @@ export function featureStatus(feature, items) {
 
 /** Overdue-and-unfinished wins (what slipped must show first), else the earliest unfinished. */
 export function currentVersion(versions, today) {
-  const open = versions.filter((v) => v.features.some((f) => f.status !== 'done'));
+  // A version with no issues yet is not finished — it must not read as "all done".
+  const open = versions.filter((v) => !v.features.length || v.features.some((f) => f.status !== 'done'));
   return open.find((v) => v.due < today) ?? open.find((v) => v.due >= today) ?? null;
 }
 
@@ -93,6 +107,7 @@ export function healthOf({ planState, current, exceptions }) {
   if (planState === 'unconfigured') return { level: 'unknown', why: '일정이 연결되지 않음' };
   if (planState !== 'ok') return { level: 'unknown', why: '일정을 읽지 못함' };
   if (!current) return { level: 'on', why: '모든 버전 완료' };
+  if (!current.features.length) return { level: current.daysLeft < 0 ? 'off' : 'risk', why: `${current.id}에 이슈 없음` };
   if (current.features.some((f) => f.status === null)) return { level: 'unknown', why: '진도를 확인하지 못함' };
   const left = current.features.filter((f) => f.status !== 'done');
   const d = current.daysLeft;

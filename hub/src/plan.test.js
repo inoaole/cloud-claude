@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSchedule, daysBetween, featureStatus, currentVersion, exceptionsOf, healthOf } from './plan.js';
+import { parsePhases, versionsFromMilestones, daysBetween, featureStatus, currentVersion, exceptionsOf, healthOf } from './plan.js';
 
 const sched = {
   phases: [{ name: 'W1', start: '2026-10-10', end: '2026-10-12' }, { name: '휴식', start: '2026-10-20', end: '2026-10-28', rest: true }],
@@ -13,14 +13,11 @@ const sched = {
   ],
 };
 
-test('parseSchedule: due 오름차순, issues 기본값 [], 형식 오류는 throw', () => {
-  const s = parseSchedule(sched);
-  assert.deepEqual(s.versions.map((v) => v.id), ['0.0.3', '0.1.0']);
-  assert.deepEqual(s.versions[0].features[1].issues, []);
-  assert.throws(() => parseSchedule({ phases: [], versions: [{ id: 'x', due: '10/12', features: [] }] }), /due/);
-  assert.throws(() => parseSchedule({ phases: [], versions: [{ id: 'x', due: '2026-10-12', features: [{ name: 'a', owner: 'b', issues: ['r_api#4'] }] }] }), /issue/);
-  assert.throws(() => parseSchedule({ phases: [{ name: 'W1', start: 'x', end: '2026-10-12' }], versions: [] }), /phase/);
-  assert.throws(() => parseSchedule(null), /schedule/);
+test('parsePhases: 기간만 읽는다, 형식 오류는 throw', () => {
+  assert.deepEqual(parsePhases(sched), sched.phases);
+  assert.deepEqual(parsePhases({ phases: [] }), []);
+  assert.throws(() => parsePhases({ phases: [{ name: 'W1', start: 'x', end: '2026-10-12' }] }), /phase/);
+  assert.throws(() => parsePhases(null), /schedule/);
 });
 
 test('daysBetween: 날짜 문자열 차이', () => {
@@ -55,6 +52,8 @@ test('currentVersion: 밀린 버전 우선, 그다음 가장 이른 미완, 전�
   assert.equal(currentVersion(vs, '2026-10-10').id, '0.0.3');
   assert.equal(currentVersion([ver('0.0.2', '2026-10-09', ['pr']), ...vs.slice(1)], '2026-10-10').id, '0.0.2');
   assert.equal(currentVersion([ver('0.0.2', '2026-10-09', ['done'])], '2026-10-10'), null);
+  // 이슈가 아직 없는 버전은 끝난 게 아니다 — "모든 버전 완료"로 위장하지 않는다
+  assert.equal(currentVersion([ver('0.0.2', '2026-10-09', ['done']), ver('0.0.3', '2026-10-12', [])], '2026-10-10').id, '0.0.3');
 });
 
 const person = (name, over = {}) => ({ name, mode: 'dev', onTrack: true, history: [], prs: [], ...over });
@@ -101,4 +100,23 @@ test('healthOf: 스펙 3.3 표의 각 행', () => {
   assert.equal(healthOf({ planState: 'ok', current: cur(10, ['todo']), exceptions: [{ kind: 'review', verdict: 'check' }] }).level, 'on');
   assert.deepEqual(healthOf({ planState: 'ok', current: cur(10, ['done', 'pr']), exceptions: [] }), { level: 'on', why: '0.0.3까지 10일, 2개 중 1개 머지' });
   assert.deepEqual(healthOf({ planState: 'ok', current: null, exceptions: [] }), { level: 'on', why: '모든 버전 완료' });
+  assert.deepEqual(healthOf({ planState: 'ok', current: cur(2, []), exceptions: [] }), { level: 'risk', why: '0.0.3에 이슈 없음' });
+  assert.deepEqual(healthOf({ planState: 'ok', current: cur(-1, []), exceptions: [] }), { level: 'off', why: '0.0.3에 이슈 없음' });
+});
+
+test('versionsFromMilestones: 레포를 가로질러 같은 버전을 합치고, 마감 없는 마일스톤은 뺀다', () => {
+  const ms = (number, title, due_on, description = '') => ({ number, title, due_on, description });
+  const iss = (number, title, login, over = {}) => ({ number, title, state: 'open', user: { login }, assignees: [], ...over });
+  const vs = versionsFromMilestones([
+    { repo: 'o/r_api', milestones: [ms(1, '0.0.1', '2026-10-09T12:00:00Z', '스캐폴딩 · 회원가입 · 로그인. 첫 기능 묶음.'), ms(3, '1.0.0 — 정식 릴리스', null)],
+      issues: { 1: [iss(2, '인증 스키마', 'inoaole')] } },
+    { repo: 'o/r_web', milestones: [ms(1, '0.0.1', '2026-10-09T12:00:00Z'), ms(2, '0.1.0 — MVP', '2026-11-08T12:00:00Z')],
+      issues: { 1: [iss(31, 'rewrites', 'inoaole', { assignees: [{ login: 'banunas' }] })], 2: [] } },
+  ], { inoaole: '종현', banunas: '서윤' });
+  assert.deepEqual(vs.map((v) => [v.id, v.due, v.goal]), [['0.0.1', '2026-10-09', '스캐폴딩 · 회원가입 · 로그인'], ['0.1.0', '2026-11-08', 'MVP']]);
+  assert.deepEqual(vs[0].features, [
+    { name: '인증 스키마', owner: '종현', issues: ['o/r_api#2'] },
+    { name: 'rewrites', owner: '서윤', issues: ['o/r_web#31'] }, // assignee 가 작성자보다 우선
+  ]);
+  assert.deepEqual(vs[1].features, []);
 });

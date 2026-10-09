@@ -7,7 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { kstParts } from './market.js';
-import { parseSchedule, daysBetween, featureStatus, currentVersion, exceptionsOf, healthOf } from './plan.js';
+import { parsePhases, versionsFromMilestones, daysBetween, featureStatus, currentVersion, exceptionsOf, healthOf } from './plan.js';
 
 const ID_RE = /^[a-z0-9-]{1,32}$/;
 const CHANNEL_RE = /^\d{1,20}$/;
@@ -131,6 +131,7 @@ async function teamSections(project, ctx, monday, startMs) {
     team: { state: 'unconfigured', summary: null, people: [] },
     ledger: { state: 'unconfigured' },
     github: { state: 'unconfigured' },
+    repos: [], nameOf: {},
   };
   if (!project.penaltyBotDir) return unconfigured;
   const dir = project.penaltyBotDir;
@@ -141,7 +142,7 @@ async function teamSections(project, ctx, monday, startMs) {
     if (!Array.isArray(cfg?.people) || !Array.isArray(cfg.repos ?? [])) throw new Error('config.json: people/repos must be arrays');
   } catch (e) {
     ctx.onError('team', e);
-    return { ...unconfigured, team: { state: 'error', summary: null, people: [] } };
+    return { ...unconfigured, team: { state: 'error', summary: null, people: [] }, repos: null };
   }
 
   // No ledger yet = the judge has never run. That is normal, not an error.
@@ -173,7 +174,8 @@ async function teamSections(project, ctx, monday, startMs) {
     ...summarizePerson(weeks, p.name),
     prs: pulls && filterPrs(pulls, p.github, startMs),
   }));
-  return { team: { state: 'ok', summary: teamSummary(people), people }, ledger, github };
+  const nameOf = Object.fromEntries((cfg.people ?? []).filter((p) => p.github).map((p) => [p.github, p.name]));
+  return { team: { state: 'ok', summary: teamSummary(people), people }, ledger, github, repos: cfg.repos ?? [], nameOf };
 }
 
 async function discordSection(project, ctx) {
@@ -193,42 +195,51 @@ async function discordSection(project, ctx) {
   return { state: channels.some((c) => c.state === 'ok') ? 'ok' : 'error', channels };
 }
 
-async function planSection(project, ctx, today) {
+/** Versions come from GitHub milestones on the team's repos; schedule.json only adds phase bands.
+    repos: null = penalty-bot config unreadable (can't tell), [] = not set up. */
+async function planSection(project, ctx, today, repos, nameOf) {
   const token = ctx.env.GITHUB_TOKEN;
-  if (!project.schedule || !token) return { state: 'unconfigured' };
-  const { repo, path: file } = project.schedule;
-  let schedule;
+  if (repos === null) return { state: 'error' };
+  if (!repos.length || !token) return { state: 'unconfigured' };
+  const gh = ghHeaders(token);
+  let phases = [];
+  if (project.schedule) {
+    const { repo, path: file } = project.schedule;
+    try {
+      const url = `https://api.github.com/repos/${repo}/contents/${file.split('/').map(encodeURIComponent).join('/')}`;
+      phases = parsePhases(await getJson(ctx.fetchFn, url, { ...gh, Accept: 'application/vnd.github.raw+json' }));
+    } catch (e) {
+      ctx.onError('schedule', e); // phase bands are decoration; versions still stand without them
+    }
+  }
+  let fetched;
   try {
-    const url = `https://api.github.com/repos/${repo}/contents/${file.split('/').map(encodeURIComponent).join('/')}`;
-    schedule = parseSchedule(await getJson(ctx.fetchFn, url, { ...ghHeaders(token), Accept: 'application/vnd.github.raw+json' }));
+    fetched = await Promise.all(repos.map(async (repo) => {
+      const milestones = await getJson(ctx.fetchFn, `https://api.github.com/repos/${repo}/milestones?state=all&per_page=100`, gh);
+      const issues = {};
+      // ponytail: 100 issues per milestone; paginate if a single version ever outgrows it.
+      await Promise.all(milestones.filter((m) => m.due_on).map(async (m) => {
+        const list = await getJson(ctx.fetchFn, `https://api.github.com/repos/${repo}/issues?milestone=${m.number}&state=all&per_page=100`, gh);
+        issues[m.number] = list.filter((i) => !i.pull_request);
+      }));
+      // ponytail: newest 100 open PRs for "Closes #n"; paginate if a repo ever has more open at once.
+      const pulls = await getJson(ctx.fetchFn, `https://api.github.com/repos/${repo}/pulls?state=open&per_page=100`, gh);
+      return { repo, milestones, issues, pulls };
+    }));
   } catch (e) {
-    ctx.onError('plan', e);
+    // A missing repo means missing versions — a partial plan would lie about what is left.
+    ctx.onError('milestones', e);
     return { state: 'error' };
   }
-  const refs = schedule.versions.flatMap((v) => v.features.flatMap((f) => f.issues));
-  const repos = [...new Set(refs.map((r) => r.split('#')[0]))];
-  // Fetch each referenced issue directly (an old issue must not fall off a newest-N page),
-  // plus open PRs for "Closes #n" mentions. Any failure → that repo is "can't tell" (null).
-  const items = new Map(await Promise.all(repos.map(async (r) => {
-    try {
-      const gh = ghHeaders(token);
-      const nums = [...new Set(refs.filter((x) => x.startsWith(`${r}#`)).map((x) => x.split('#')[1]))];
-      const issues = await Promise.all(nums.map((n) => getJson(ctx.fetchFn, `https://api.github.com/repos/${r}/issues/${n}`, gh)));
-      // ponytail: newest 100 open PRs; paginate if a repo ever has more open at once.
-      const pulls = await getJson(ctx.fetchFn, `https://api.github.com/repos/${r}/pulls?state=open&per_page=100`, gh);
-      return [r, [...issues, ...pulls.map((p) => ({ ...p, pull_request: {} }))]];
-    } catch (e) {
-      ctx.onError('issues', e);
-      return [r, null];
-    }
-  })));
-  const versions = schedule.versions.map((v) => ({
+  const items = new Map(fetched.map((r) => [r.repo, [...Object.values(r.issues).flat(), ...r.pulls.map((p) => ({ ...p, pull_request: {} }))]]));
+  const versions = versionsFromMilestones(fetched, nameOf).map((v) => ({
     ...v, features: v.features.map((f) => ({ name: f.name, owner: f.owner, ...featureStatus(f, items) })),
   }));
+  if (!versions.length) return { state: 'unconfigured' };
   const cur = currentVersion(versions, today);
   return {
-    state: 'ok', today, phases: schedule.phases,
-    milestones: versions.map((v) => ({ id: v.id, due: v.due, done: v.features.every((f) => f.status === 'done') })),
+    state: 'ok', today, phases,
+    milestones: versions.map((v) => ({ id: v.id, due: v.due, done: v.features.length > 0 && v.features.every((f) => f.status === 'done') })),
     current: cur && { id: cur.id, due: cur.due, goal: cur.goal, daysLeft: daysBetween(today, cur.due), features: cur.features },
   };
 }
@@ -264,9 +275,10 @@ export async function getProject(project, {
   const monday = weekStart(now);
   const startMs = Date.parse(`${monday}T00:00:00+09:00`);
   const today = kstParts(now).date;
-  const [teamPart, discord, plan, brief] = await Promise.all([
-    teamSections(project, ctx, monday, startMs), discordSection(project, ctx), planSection(project, ctx, today), briefSection(project, ctx, now),
+  const [{ repos, nameOf, ...teamPart }, discord, brief] = await Promise.all([
+    teamSections(project, ctx, monday, startMs), discordSection(project, ctx), briefSection(project, ctx, now),
   ]);
+  const plan = await planSection(project, ctx, today, repos, nameOf);
   const current = plan.current ?? null;
   const exceptions = exceptionsOf({ current, people: teamPart.team.people, reviews: brief.reviews ?? [] });
   const health = healthOf({ planState: plan.state, current, exceptions });

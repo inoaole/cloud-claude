@@ -41,8 +41,12 @@ CLAUDE_CODE_OAUTH_TOKEN=...
 ```
 The bot token (`claude-bot-jh`) needs **Read** on `uni-keyyy/Unikey-outline`.
 
+Versions come from **GitHub milestones** on the penalty-bot `repos` (title `0.1.0 — MVP` → version
+`0.1.0`, due date required). Issues attached to a milestone are its features; owner = assignee,
+else the author. `schedule.json` only holds the timeline's phase bands: `{ "phases": [...] }`.
+
 Cron (every 2h):
 ```bash
-0 */2 * * * cd /home/ubuntu/cloud-claude && /usr/bin/node hub/src/brief.js >> brief.log 2>&1
+0 */2 * * * cd /home/ubuntu/cloud-claude && /usr/bin/flock -n /tmp/cc-brief.lock /usr/bin/node hub/src/brief.js >> brief.log 2>&1
 ```
 If the runner stops, the phone shows "요약이 갱신되지 않음" after 6 hours — never a quiet day.
